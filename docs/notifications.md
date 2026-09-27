@@ -30,3 +30,9 @@ Claims are leased for five minutes and skipped by concurrent dispatches. Unchang
 ## Operational limits
 
 The app is local-first, with no complete task backup/sync. Only enabled reminder tasks are copied to the server. Offline completion cannot retract reminders until successful sync. A notification already in flight may still arrive. A due-day reminder is not replayed the following day; daily reminders continue until completion. Supabase project availability/quotas, browser subscription lifetime, network access and iOS Focus/notification settings affect delivery. The feature is a reminder, not a safety-critical alarm.
+
+## Password recovery
+
+`reset.html` provides the shared-account password recovery flow. It sends a Supabase recovery email to a fixed `https://tommyyy-glitch.github.io/Mydo/reset.html` callback. Add that exact URL to Auth redirect URLs while preserving the Myfin Site URL and existing entries. The callback removes the URL fragment immediately, verifies the recovery session, and keeps its access token only in page memory. New passwords are sent directly to Supabase over HTTPS and never written to localStorage or logs. This page intentionally is not in the offline cache and does not load analytics or third-party scripts.
+
+The user must open their email and enter/submit the new password themselves. Resetting this shared login also changes the password used to sign into Myfin; it does not change the separate ledger encryption passphrase. Five additional unit tests cover recovery token gating, password validation, fixed callback routing, authenticated updates, and safe error messages. Browser QA verified the initial and expired-link flows. Actual password mutation is a user handoff.

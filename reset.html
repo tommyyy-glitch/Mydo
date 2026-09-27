@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#111713" />
+    <meta name="referrer" content="no-referrer" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; connect-src https://wmjbbuplqvxjcqevggux.supabase.co; style-src 'self'; script-src 'self'; base-uri 'none'; form-action 'none'"
+    />
+    <title>Mydo · Reset password / 重設密碼</title>
+    <link rel="icon" href="icon.svg" />
+    <link rel="stylesheet" href="reset.css" />
+    <script type="module" src="reset.js"></script>
+  </head>
+  <body>
+    <main>
+      <a class="brand" href="./">mydo.</a>
+      <h1>重設登入密碼<br /><small>Reset your password</small></h1>
+      <p>
+        這是 Myfin 和 Mydo
+        共用的雲端登入密碼。帳目、任務及帳本加密密語不會因此改動。
+      </p>
+      <p class="muted">
+        This changes the shared Myfin / Mydo cloud sign-in password. Your data
+        and ledger encryption passphrase stay unchanged.
+      </p>
+      <p id="status" role="status">正在準備… / Preparing…</p>
+      <form id="request-form" hidden>
+        <label
+          >帳戶電郵 / Account email<input
+            name="email"
+            type="email"
+            autocomplete="username"
+            required
+        /></label>
+        <button>寄出重設連結 / Send reset link</button>
+      </form>
+      <form id="password-form" hidden>
+        <label
+          >新密碼 / New password<input
+            name="password"
+            type="password"
+            autocomplete="new-password"
+            minlength="12"
+            required
+        /></label>
+        <label
+          >確認新密碼 / Confirm password<input
+            name="confirm"
+            type="password"
+            autocomplete="new-password"
+            minlength="12"
+            required
+        /></label>
+        <p class="muted">請使用至少 12 個字元。/ Use at least 12 characters.</p>
+        <button>儲存新密碼 / Save new password</button>
+      </form>
+      <p id="error" role="alert"></p>
+      <a href="./">返回 Mydo / Back to Mydo</a>
+    </main>
+  </body>
+</html>

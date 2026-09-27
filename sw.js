@@ -1,4 +1,4 @@
-const CACHE = "mydo-shell-" + self.registration.scope + "-v2";
+const CACHE = "mydo-shell-" + self.registration.scope + "-v3";
 const FILES = [
   "./",
   "index.html",
