@@ -1,0 +1,25 @@
+{
+  "id": "./",
+  "name": "Mydo — What matters next",
+  "short_name": "Mydo",
+  "description": "Priorities, deadlines and connected tasks. English / 繁體中文.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#141715",
+  "theme_color": "#141715",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
