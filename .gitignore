@@ -3,3 +3,9 @@ node_modules/
 test-results/
 playwright-report/
 *.backup.json
+
+.env
+.env.*
+!.env.example
+supabase/.temp/
+.secrets/

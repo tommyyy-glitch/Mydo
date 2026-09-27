@@ -1,0 +1,6 @@
+project_id = "mydo"
+
+[functions.mydo-push]
+# The handler verifies user JWTs with Supabase Auth, and a separate random
+# cron-only secret. Never accept a decoded-but-unverified JWT.
+verify_jwt = false

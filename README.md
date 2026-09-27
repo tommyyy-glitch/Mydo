@@ -2,7 +2,7 @@
 
 A quieter place to decide what comes next. / 理清優先次序，踏實做好下一步。
 
-Mydo is a personal task planner with English and Traditional Chinese interfaces, a soft charcoal theme, real deadlines, and prerequisite relationships. It runs entirely in your browser with no runtime libraries, account, or backend.
+Mydo is a personal task planner with English and Traditional Chinese interfaces, a soft charcoal theme, real deadlines, and prerequisite relationships. The task planner runs locally in your browser without runtime libraries. Optional phone notifications use your existing Supabase cloud account and a separate reminder service.
 
 ## Use
 
@@ -35,9 +35,9 @@ Next-up ordering: overdue linked deadline, deadline within three days, urgency, 
 
 ## Your data
 
-Tasks are saved in localStorage (`mydo.v1`) on this browser and site origin. They are **not synced between devices**, backed up to GitHub, or sent to a service. Clearing browser data can remove tasks. Export JSON backups regularly; Import validates a file and asks before replacing the entire list. A corrupted stored list is preserved for export rather than silently overwritten. The app supports up to 2,000 tasks, but the path diagram is intended for smaller personal projects.
+Tasks are saved in localStorage (`mydo.v1`) on this browser and site origin. They are **not synced between devices** or backed up to GitHub. When phone reminders are enabled, only open reminder tasks (title, date, reminder settings and task ID), language and the device push subscription are sent to Supabase; notes and task relationships stay local. Clearing browser data can remove tasks. Export JSON backups regularly; Import validates a file and asks before replacing the entire list. A corrupted stored list is preserved for export rather than silently overwritten. The app supports up to 2,000 tasks, but the path diagram is intended for smaller personal projects.
 
-After the first successful online load, a scoped service worker caches the app shell for offline opening. On iPhone, open the hosted site in Safari, tap Share → Add to Home Screen, then launch Mydo from its icon. Export a backup before moving between Safari and the installed app in case their storage contexts differ. Close all Mydo windows to activate an available application update. Browser/OS storage eviction can remove offline data. There are no background deadline notifications. Browser storage is not encrypted. Do not store secrets in task notes.
+After the first successful online load, a scoped service worker caches the app shell for offline opening. On iPhone, open the hosted site in Safari, tap Share → Add to Home Screen, then launch Mydo from its icon. Export a backup before moving between Safari and the installed app in case their storage contexts differ. Close all Mydo windows to activate an available application update. Browser/OS storage eviction can remove offline data. Phone reminders can arrive while Mydo is closed once enabled from the installed Home Screen app. Browser storage is not encrypted. Do not store secrets in task notes.
 
 ## Development and verification
 
@@ -55,3 +55,18 @@ Files: `model.js` is the dependency and prioritization logic; `app.js` is the bi
 ## Hosting
 
 GitHub Pages can serve the repository root directly from `main`. All assets and navigation use relative URLs / hashes, so the `/Mydo/` project path works without rewriting routes. CI runs the model and syntax checks. GitHub stores the application source only.
+
+## Phone reminders
+
+1. Open Mydo from its iPhone Home Screen icon.
+2. Open **Phone reminders / 手機通知**, sign in with your existing **Myfin cloud account** (not your Supabase dashboard/GitHub login), and tap **Enable this phone** → Allow.
+3. Send a test notification and verify it appears on your iPhone.
+4. In a task, select **Remind me on the due date** and/or **Every day until completed**. Choose the local time, timezone and daily start date, then save.
+
+Due-day reminders are sent on that calendar date after the selected time. Daily reminders start on the chosen date and continue after a deadline until completion. Both modes combine on the due date. The scheduler checks every minute; this is best-effort delivery, not an exact alarm. Focus mode, network availability, permissions, service outages and OS behavior can delay or suppress notifications. Past days are not replayed.
+
+Completion, deletion and disabled task reminders are removed from the server after successful sync. **Offline changes cannot cancel already scheduled server reminders until reconnecting and syncing.** Pending sync is shown in the app. Use **Stop this phone's reminders** to disable the device remotely. Task storage remains local and the cloud reminder copy is not a backup.
+
+The service accepts up to 100 active reminder tasks per device. Each device has its own subscription and reminder copy. Signing out of notifications stops that device's reminders. Push subscription expiration requires reconnecting notifications from that device. Losing browser data can lose the local device identity; remove stale subscriptions administratively if needed.
+
+See [notification deployment](docs/notifications.md) for server setup and verification.

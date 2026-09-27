@@ -1,3 +1,4 @@
+import { validateReminder } from "./reminders.js";
 export const today = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -92,6 +93,7 @@ export function validate(tasks) {
         new Date(t.due).toISOString().slice(0, 10) !== t.due)
     )
       throw Error("date");
+    validateReminder(t.reminder, t.due);
     ids.add(t.id);
   }
   for (const t of tasks)

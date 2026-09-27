@@ -1,3 +1,4 @@
+import { PhoneReminders } from "./push-client.js";
 import {
   today,
   dayDiff,
@@ -13,6 +14,7 @@ import {
   parseBackup,
   demoTasks,
 } from "./model.js";
+let phone;
 const KEY = "mydo.v1",
   LANG = "mydo.lang";
 let tasks = [],
@@ -89,6 +91,18 @@ const errors = () => ({
   missing: tr("A prerequisite no longer exists.", "前置任務已不存在。"),
   format: tr("This is not a valid Mydo backup.", "這不是有效的 Mydo 備份。"),
   date: tr("Enter a valid deadline.", "請輸入有效截止日期。"),
+  reminder: tr(
+    "Check the reminder time and timezone.",
+    "請檢查提醒時間及時區。",
+  ),
+  reminderDue: tr(
+    "Choose a real deadline to enable a due-date notification.",
+    "請先選擇真實截止日期，再啟用截止日通知。",
+  ),
+  reminderStart: tr(
+    "Choose when daily reminders should start.",
+    "請選擇每日提醒的開始日期。",
+  ),
   version: tr("This backup version is not supported.", "不支援此備份版本。"),
 });
 function errorText(e) {
@@ -114,6 +128,7 @@ function commit(next) {
     localStorage.setItem(KEY, JSON.stringify({ version: 1, tasks: next }));
   tasks = next;
   render();
+  if (!demo) phone?.sync();
 }
 function dateLabel(d) {
   const days = dayDiff(d);
@@ -283,7 +298,7 @@ function render() {
       )
       .join(
         "",
-      )}</nav><div class="project-heading">${tr("SPACES", "生活領域")}</div><button class="space ${!project ? "selected" : ""}" data-project=""><span class="space-dot"></span>${tr("Everything", "所有領域")}</button>${projects.map((p, i) => `<button class="space ${project === p ? "selected" : ""}" data-project="${esc(p)}"><span class="space-dot s${i % 3}"></span>${esc(p)}</button>`).join("")}<div class="sidebar-bottom"><div class="night-note">${icon("moon")}<span>${tr("Less noise.<br>More intention.", "少一點雜音。<br>多一點從容。")}</span></div><button class="small-button" id="export">${icon("down")}${tr("Export backup", "匯出備份")}</button><button class="small-button" id="import">${tr("Import backup", "匯入備份")}</button><button class="small-button" id="install-help">${icon("plus")}${tr("Add to iPhone", "加入 iPhone 主畫面")}</button><div class="storage-dot"><span></span>${demo ? tr("Example · changes not saved", "範例 · 更改不會儲存") : tr("Saved on this browser", "儲存於此瀏覽器")}</div></div></aside><div class="workspace"><header class="topbar"><div class="breadcrumb">${tr("My space", "我的空間")} <span>/</span> ${names()[view]}</div><div class="top-actions"><button id="language" class="language" aria-label="${tr("Switch to Chinese", "切換至英文")}">EN <span>/</span> 繁中</button><span class="avatar" aria-hidden="true">M</span></div></header><main id="main"><div class="page-heading"><div><div class="eyebrow">${esc(new Intl.DateTimeFormat(lang === "zh" ? "zh-HK" : "en-GB", { weekday: "long", day: "numeric", month: "long" }).format(new Date()))}</div><h1>${names()[view]}<span class="heading-dot">.</span></h1><p>${tr("A clear head. A meaningful next step.", "思緒清晰一點，下一步踏實一點。")}</p></div><button class="primary add-main" data-new>${icon("plus")}${tr("New task", "新增任務")}<kbd>N</kbd></button></div>${recovery ? `<div class="banner danger">${tr("Your stored data could not be read. It has been preserved. Export it before restoring a valid backup.", "無法讀取現有資料，原始資料已保留。請先匯出，再還原有效備份。")}</div>` : ""}${demo ? `<div class="banner">${tr("You’re exploring sample tasks. Nothing here is saved to your list.", "你正在瀏覽範例任務，更改不會存入你的清單。")}<button class="text-button" id="exit-demo">${tr("Back to my tasks", "返回我的任務")} ${icon("arrow")}</button></div>` : ""}<div class="stats"><div><span>${tr("Open tasks", "待處理任務")}</span><strong>${active.length.toString().padStart(2, "0")}</strong></div><div><span><i class="stat-dot mint"></i>${tr("Ready to start", "可以開始")}</span><strong>${ready.length.toString().padStart(2, "0")}</strong></div><div><span><i class="stat-dot amber"></i>${tr("Due soon / overdue", "快到期／已逾期")}</span><strong>${dues.toString().padStart(2, "0")}</strong></div><div><span>${icon("lock")}${tr("Waiting on a step", "等待前置步驟")}</span><strong>${blocked.toString().padStart(2, "0")}</strong></div></div><div class="toolbar"><div class="view-tabs">${Object.entries(
+      )}</nav><div class="project-heading">${tr("SPACES", "生活領域")}</div><button class="space ${!project ? "selected" : ""}" data-project=""><span class="space-dot"></span>${tr("Everything", "所有領域")}</button>${projects.map((p, i) => `<button class="space ${project === p ? "selected" : ""}" data-project="${esc(p)}"><span class="space-dot s${i % 3}"></span>${esc(p)}</button>`).join("")}<div class="sidebar-bottom"><div class="night-note">${icon("moon")}<span>${tr("Less noise.<br>More intention.", "少一點雜音。<br>多一點從容。")}</span></div><button class="small-button" id="export">${icon("down")}${tr("Export backup", "匯出備份")}</button><button class="small-button" id="import">${tr("Import backup", "匯入備份")}</button><button class="small-button" id="phone-settings">${icon("clock")}${tr("Phone reminders", "手機通知")}</button><button class="small-button" id="install-help">${icon("plus")}${tr("Add to iPhone", "加入 iPhone 主畫面")}</button><div class="storage-dot"><span></span>${demo ? tr("Example · changes not saved", "範例 · 更改不會儲存") : tr("Saved on this browser", "儲存於此瀏覽器")}</div></div></aside><div class="workspace"><header class="topbar"><div class="breadcrumb">${tr("My space", "我的空間")} <span>/</span> ${names()[view]}</div><div class="top-actions"><button id="language" class="language" aria-label="${tr("Switch to Chinese", "切換至英文")}">EN <span>/</span> 繁中</button><span class="avatar" aria-hidden="true">M</span></div></header><main id="main"><div class="page-heading"><div><div class="eyebrow">${esc(new Intl.DateTimeFormat(lang === "zh" ? "zh-HK" : "en-GB", { weekday: "long", day: "numeric", month: "long" }).format(new Date()))}</div><h1>${names()[view]}<span class="heading-dot">.</span></h1><p>${tr("A clear head. A meaningful next step.", "思緒清晰一點，下一步踏實一點。")}</p></div><button class="primary add-main" data-new>${icon("plus")}${tr("New task", "新增任務")}<kbd>N</kbd></button></div>${recovery ? `<div class="banner danger">${tr("Your stored data could not be read. It has been preserved. Export it before restoring a valid backup.", "無法讀取現有資料，原始資料已保留。請先匯出，再還原有效備份。")}</div>` : ""}${demo ? `<div class="banner">${tr("You’re exploring sample tasks. Nothing here is saved to your list.", "你正在瀏覽範例任務，更改不會存入你的清單。")}<button class="text-button" id="exit-demo">${tr("Back to my tasks", "返回我的任務")} ${icon("arrow")}</button></div>` : ""}<div class="stats"><div><span>${tr("Open tasks", "待處理任務")}</span><strong>${active.length.toString().padStart(2, "0")}</strong></div><div><span><i class="stat-dot mint"></i>${tr("Ready to start", "可以開始")}</span><strong>${ready.length.toString().padStart(2, "0")}</strong></div><div><span><i class="stat-dot amber"></i>${tr("Due soon / overdue", "快到期／已逾期")}</span><strong>${dues.toString().padStart(2, "0")}</strong></div><div><span>${icon("lock")}${tr("Waiting on a step", "等待前置步驟")}</span><strong>${blocked.toString().padStart(2, "0")}</strong></div></div><div class="toolbar"><div class="view-tabs">${Object.entries(
       names(),
     )
       .map(
@@ -292,7 +307,7 @@ function render() {
       )
       .join(
         "",
-      )}</div><label class="search">${icon("search")}<input id="search" type="search" aria-label="${tr("Search tasks", "搜尋任務")}" placeholder="${tr("Find a task…", "搜尋任務…")}" value="${esc(search)}"></label></div><div id="content">${{ focus: focusView, matrix: matrixView, paths: pathsView, all: allView }[view](list)}</div><footer>${tr("You don’t have to do everything. Just the next right thing.", "不必一次做完所有事，先做好下一步。")}<span>MYDO / 01</span></footer></main></div>`;
+      )}</div><label class="search">${icon("search")}<input id="search" type="search" aria-label="${tr("Search tasks", "搜尋任務")}" placeholder="${tr("Find a task…", "搜尋任務…")}" value="${esc(search)}"></label></div><div id="phone-sync-status" role="status">${phoneStatus()}</div><div id="content">${{ focus: focusView, matrix: matrixView, paths: pathsView, all: allView }[view](list)}</div><footer>${tr("You don’t have to do everything. Just the next right thing.", "不必一次做完所有事，先做好下一步。")}<span>MYDO / 01</span></footer></main></div>`;
 }
 function openEditor(id = "", defaults = {}) {
   const t = tasks.find((t) => t.id === id) || {
@@ -311,7 +326,7 @@ function openEditor(id = "", defaults = {}) {
     deps = tasks.filter((x) => x.id !== t.id),
     followers = tasks.filter((x) => x.deps.includes(t.id));
   const dialog = $("#editor");
-  dialog.innerHTML = `<form id="task-form"><header class="dialog-header"><div><div class="eyebrow">${tr("MAKE THE NEXT STEP CLEAR", "把下一步想清楚")}</div><h2 id="editor-title">${existing ? tr("Task details", "任務詳情") : tr("Something on your mind?", "有什麼想做？")}</h2></div><button type="button" class="icon-button" data-close aria-label="${tr("Close", "關閉")}">${icon("close")}</button></header><label><span>${tr("Task name", "任務名稱")} *</span><input name="title" maxlength="200" required placeholder="${tr("What needs to happen?", "需要完成什麼？")}" value="${esc(t.title)}"></label><div class="form-grid"><fieldset><legend>${tr("How important is it to you?", "對你有多必要？")}</legend><div class="segmented"><label><input type="radio" name="intent" value="must" ${t.intent === "must" ? "checked" : ""}><span>Must · ${tr("Need to", "必須做")}</span></label><label><input type="radio" name="intent" value="want" ${t.intent === "want" ? "checked" : ""}><span>Want · ${tr("Like to", "想做")}</span></label></div></fieldset><fieldset><legend>${tr("Does it feel urgent?", "現在需要急著做嗎？")}</legend><div class="segmented"><label><input type="radio" name="urgent" value="true" ${t.urgent ? "checked" : ""}><span>${tr("Urgent", "緊急")}</span></label><label><input type="radio" name="urgent" value="false" ${!t.urgent ? "checked" : ""}><span>${tr("Not urgent", "不緊急")}</span></label></div></fieldset></div><div class="form-grid"><label>${tr("Real deadline", "真實截止日期")}<input name="due" type="date" min="1900-01-01" max="9999-12-31" value="${esc(t.due)}"><small>${tr("Optional. End of this day, in your local time.", "可留空，以你所在地當日結束為準。")}</small></label><label>${tr("Space / project", "領域／專案")}<input name="project" maxlength="80" list="projects" value="${esc(t.project)}" placeholder="${tr("e.g. Work, Life, Personal", "例如：工作、生活、個人")}" ><datalist id="projects">${[...new Set(tasks.map((t) => t.project))].map((p) => `<option value="${esc(p)}"></option>`).join("")}</datalist></label></div><fieldset><legend>${icon("paths")}${tr("What needs to happen first?", "需要先完成什麼？")}</legend><p class="field-help">${tr("Select all prerequisites. This task unlocks when all are complete.", "選取所有前置任務，全部完成後才會解鎖此任務。")}</p><div class="dep-picker">${deps.length ? deps.map((d) => `<label><input type="checkbox" name="deps" value="${esc(d.id)}" ${t.deps.includes(d.id) ? "checked" : ""}><span>${esc(d.title)}${d.done ? ` <small>✓ ${tr("Done", "已完成")}</small>` : ""}</span><button type="button" class="text-button dep-open" data-edit="${esc(d.id)}" aria-label="${esc(tr("Open ", "開啟 ") + d.title)}">↗</button></label>`).join("") : `<small>${tr("Create another task to connect it here.", "建立另一個任務後，就能在此連接。")}</small>`}</div></fieldset>${followers.length ? `<div class="followups"><strong>${tr("What this unlocks", "完成後可解鎖")}</strong>${followers.map((f) => `<button type="button" class="text-button" data-edit="${esc(f.id)}">${esc(f.title)} ${icon("arrow")}</button>`).join("")}</div>` : ""}<label>${tr("Notes", "備註")}<textarea name="notes" maxlength="5000" rows="3" placeholder="${tr("A little context for your future self…", "留些提示給之後的自己…")}">${esc(t.notes)}</textarea></label><p class="form-error" id="form-error" role="alert"></p><div class="dialog-footer">${existing ? `<button type="button" class="text-button danger-text" data-delete="${esc(t.id)}">${tr("Delete task", "刪除任務")}</button>` : "<span></span>"}<div><button type="button" class="secondary" data-close>${tr("Cancel", "取消")}</button><button type="submit" class="primary">${tr("Save task", "儲存任務")}</button></div></div>${existing ? `<button type="submit" class="secondary" name="complete" value="true">${icon(t.done ? "all" : "check")}${t.done ? tr("Reopen task", "重新開啟任務") : tr("Mark complete", "標記完成")}</button>` : ""}</form>`;
+  dialog.innerHTML = `<form id="task-form"><header class="dialog-header"><div><div class="eyebrow">${tr("MAKE THE NEXT STEP CLEAR", "把下一步想清楚")}</div><h2 id="editor-title">${existing ? tr("Task details", "任務詳情") : tr("Something on your mind?", "有什麼想做？")}</h2></div><button type="button" class="icon-button" data-close aria-label="${tr("Close", "關閉")}">${icon("close")}</button></header><label><span>${tr("Task name", "任務名稱")} *</span><input name="title" maxlength="200" required placeholder="${tr("What needs to happen?", "需要完成什麼？")}" value="${esc(t.title)}"></label><div class="form-grid"><fieldset><legend>${tr("How important is it to you?", "對你有多必要？")}</legend><div class="segmented"><label><input type="radio" name="intent" value="must" ${t.intent === "must" ? "checked" : ""}><span>Must · ${tr("Need to", "必須做")}</span></label><label><input type="radio" name="intent" value="want" ${t.intent === "want" ? "checked" : ""}><span>Want · ${tr("Like to", "想做")}</span></label></div></fieldset><fieldset><legend>${tr("Does it feel urgent?", "現在需要急著做嗎？")}</legend><div class="segmented"><label><input type="radio" name="urgent" value="true" ${t.urgent ? "checked" : ""}><span>${tr("Urgent", "緊急")}</span></label><label><input type="radio" name="urgent" value="false" ${!t.urgent ? "checked" : ""}><span>${tr("Not urgent", "不緊急")}</span></label></div></fieldset></div><div class="form-grid"><label>${tr("Real deadline", "真實截止日期")}<input name="due" type="date" min="1900-01-01" max="9999-12-31" value="${esc(t.due)}"><small>${tr("Optional. End of this day, in your local time.", "可留空，以你所在地當日結束為準。")}</small></label><label>${tr("Space / project", "領域／專案")}<input name="project" maxlength="80" list="projects" value="${esc(t.project)}" placeholder="${tr("e.g. Work, Life, Personal", "例如：工作、生活、個人")}" ><datalist id="projects">${[...new Set(tasks.map((t) => t.project))].map((p) => `<option value="${esc(p)}"></option>`).join("")}</datalist></label></div><fieldset><legend>${icon("paths")}${tr("What needs to happen first?", "需要先完成什麼？")}</legend><p class="field-help">${tr("Select all prerequisites. This task unlocks when all are complete.", "選取所有前置任務，全部完成後才會解鎖此任務。")}</p><div class="dep-picker">${deps.length ? deps.map((d) => `<label><input type="checkbox" name="deps" value="${esc(d.id)}" ${t.deps.includes(d.id) ? "checked" : ""}><span>${esc(d.title)}${d.done ? ` <small>✓ ${tr("Done", "已完成")}</small>` : ""}</span><button type="button" class="text-button dep-open" data-edit="${esc(d.id)}" aria-label="${esc(tr("Open ", "開啟 ") + d.title)}">↗</button></label>`).join("") : `<small>${tr("Create another task to connect it here.", "建立另一個任務後，就能在此連接。")}</small>`}</div></fieldset>${followers.length ? `<div class="followups"><strong>${tr("What this unlocks", "完成後可解鎖")}</strong>${followers.map((f) => `<button type="button" class="text-button" data-edit="${esc(f.id)}">${esc(f.title)} ${icon("arrow")}</button>`).join("")}</div>` : ""}<fieldset class="reminder-fields"><legend>${icon("clock")}${tr("Phone reminders", "手機通知")}</legend><p class="field-help">${tr("Lock-screen notifications. Enable this phone in Phone reminders first.", "鎖定畫面通知。請先在「手機通知」啟用這部手機。")}</p><label class="reminder-toggle"><input type="checkbox" name="remindDue" ${t.reminder?.onDue ? "checked" : ""}>${tr("Remind me on the due date", "截止日通知我")}</label><label class="reminder-toggle"><input type="checkbox" name="remindDaily" ${t.reminder?.daily ? "checked" : ""}>${tr("Every day until completed", "每天提醒，直到完成")}</label><div class="form-grid"><label>${tr("Notification time", "通知時間")}<input type="time" name="remindTime" required value="${esc(t.reminder?.time || "09:00")}"></label><label>${tr("Daily reminders start", "每日提醒開始日期")}<input type="date" name="remindStart" value="${esc(t.reminder?.start || t.due || today())}"></label></div><label>${tr("Time zone", "時區")}<select name="remindZone">${[...new Set([t.reminder?.timeZone, Intl.DateTimeFormat().resolvedOptions().timeZone, "Asia/Hong_Kong", "UTC"].filter(Boolean))].map((z) => `<option value="${esc(z)}" ${z === (t.reminder?.timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone) ? "selected" : ""}>${esc(z)}</option>`).join("")}</select></label><small>${tr("Due-date and daily reminders are combined on the due date. Marking complete offline stops future pushes only after reconnecting.", "兩項同時開啟時，截止日只通知一次。離線標記完成後，要重新連線同步才會停止後續推播。")}</small></fieldset><label>${tr("Notes", "備註")}<textarea name="notes" maxlength="5000" rows="3" placeholder="${tr("A little context for your future self…", "留些提示給之後的自己…")}">${esc(t.notes)}</textarea></label><p class="form-error" id="form-error" role="alert"></p><div class="dialog-footer">${existing ? `<button type="button" class="text-button danger-text" data-delete="${esc(t.id)}">${tr("Delete task", "刪除任務")}</button>` : "<span></span>"}<div><button type="button" class="secondary" data-close>${tr("Cancel", "取消")}</button><button type="submit" class="primary">${tr("Save task", "儲存任務")}</button></div></div>${existing ? `<button type="submit" class="secondary" name="complete" value="true">${icon(t.done ? "all" : "check")}${t.done ? tr("Reopen task", "重新開啟任務") : tr("Mark complete", "標記完成")}</button>` : ""}</form>`;
   if (!dialog.open) dialog.showModal();
   dialog.querySelector("[name=title]").focus();
   $("#task-form").onsubmit = (e) => {
@@ -327,6 +342,13 @@ function openEditor(id = "", defaults = {}) {
         urgent: f.get("urgent") === "true",
         due: f.get("due"),
         deps: f.getAll("deps"),
+        reminder: {
+          onDue: f.has("remindDue"),
+          daily: f.has("remindDaily"),
+          time: f.get("remindTime"),
+          start: f.get("remindStart"),
+          timeZone: f.get("remindZone"),
+        },
       });
       if (e.submitter?.name === "complete") next = toggleTask(next, t.id);
       commit(next);
@@ -395,6 +417,8 @@ document.addEventListener("click", (e) => {
           toast(tr("Task deleted.", "已刪除任務。"));
         },
       );
+    } else if (b.id === "phone-settings") {
+      openPhoneSettings();
     } else if (b.id === "install-help") {
       const d = $("#confirm");
       d.innerHTML = `<div class="confirm-content"><h2 id="confirm-title">${tr("Mydo, on your home screen.", "把 Mydo 放在主畫面。")}</h2><p>${tr("Open this website in Safari on your iPhone. Tap Share, choose Add to Home Screen, enable Open as Web App if shown, then tap Add. Open Mydo from its new icon.", "在 iPhone 的 Safari 開啟此網站。點分享，選擇「加入主畫面」，如有「作為 Web App 開啟」請開啟它，再點「新增」。之後從新圖示開啟 Mydo。")}</p><p>${tr("Load it online once to prepare offline access. Tasks stay on this device. Export a backup before moving from Safari into the installed app, then import it there if needed.", "首次請連線開啟，準備離線使用。任務保存在這部裝置。從 Safari 轉用主畫面 App 前請先匯出備份，如有需要可在 App 內匯入。")}</p><button class="primary" id="install-close">${tr("Got it", "明白")}</button></div>`;
@@ -406,6 +430,7 @@ document.addEventListener("click", (e) => {
         localStorage.setItem(LANG, lang);
       } catch {}
       render();
+      if (!demo) phone?.sync();
     } else if (b.hasAttribute("data-demo")) {
       demo = true;
       tasks = demoTasks();
@@ -466,6 +491,7 @@ $("#import-file").onchange = async (e) => {
         project = "";
         search = "";
         render();
+        phone?.sync();
         toast(tr("Backup restored.", "備份已還原。"));
       },
     );
@@ -488,6 +514,7 @@ window.addEventListener("storage", (e) => {
       $("#editor").close();
       $("#confirm").close();
       render();
+      phone?.sync();
       toast(tr("Updated from another tab.", "已同步另一分頁的更改。"));
     } catch {
       recovery = true;
@@ -516,10 +543,164 @@ setInterval(() => {
     render();
   }
 }, 30000);
+phone = new PhoneReminders({
+  getTasks: () => {
+    if (recovery) throw Error("storage");
+    return demo
+      ? parseBackup(localStorage.getItem(KEY) || '{"version":1,"tasks":[]}')
+      : tasks;
+  },
+  getLanguage: () => lang,
+  onChange: () => {
+    const el = $("#phone-sync-status");
+    if (el) el.innerHTML = phoneStatus();
+  },
+});
 render();
+if (phone.enabled && !recovery) phone.sync();
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () =>
     navigator.serviceWorker.register("./sw.js").catch(() => {}),
   );
+}
+
+function phoneStatus() {
+  if (demo || !phone?.enabled) return "";
+  if (phone.message === "synced")
+    return `<p class="push-status">${tr("Phone reminders synced", "手機提醒已同步")}</p>`;
+  return `<p class="push-status push-pending">${tr("Reminder changes are not synced yet. Existing phone reminders may continue. Open Phone reminders to reconnect.", "提醒更改尚未同步，手機可能仍收到原有提醒。請開啟「手機通知」重新連線。")}</p>`;
+}
+function phoneError(e) {
+  return (
+    {
+      login: tr(
+        "Sign in with your Myfin cloud account email and password.",
+        "請用 Myfin 雲端帳戶的電郵及密碼登入。",
+      ),
+      service: tr(
+        "The notification service is not ready or could not be reached. No reminder has been confirmed.",
+        "通知服務尚未接通或暫時無法連線，提醒尚未確認啟用。",
+      ),
+      permission: tr(
+        "Allow notifications in iPhone Settings, then try again.",
+        "請在 iPhone 設定允許通知，再重試。",
+      ),
+      unsupported: tr(
+        "On iPhone, open Mydo from its Home Screen icon first.",
+        "在 iPhone 請先從主畫面的 Mydo 圖示開啟。",
+      ),
+      rate: tr(
+        "Wait a minute before sending another test notification.",
+        "請等一分鐘再發送測試通知。",
+      ),
+      stopFirst: tr(
+        "Stop this phone's reminders before changing accounts.",
+        "請先停止這部手機的提醒，才切換帳戶。",
+      ),
+    }[e.message] ||
+    tr(
+      "Could not finish setting up phone notifications. Please retry.",
+      "未能完成手機通知設定，請再試。",
+    )
+  );
+}
+function openPhoneSettings() {
+  if (demo) {
+    toast(
+      tr(
+        "Leave example mode to set up real notifications.",
+        "請先退出範例模式，再設定真正通知。",
+      ),
+    );
+    return;
+  }
+  const dialog = $("#editor");
+  dialog.innerHTML = `<section class="phone-panel"><header class="dialog-header"><div><div class="eyebrow">MYDO</div><h2 id="editor-title">${tr("Phone reminders", "手機通知")}</h2></div><button class="icon-button" data-close aria-label="${tr("Close", "關閉")}">${icon("close")}</button></header><p>${tr("Get a lock-screen notification on the due date, or every day until a task is completed.", "截止日收到鎖定畫面通知，或每天提醒直到任務完成。")}</p><p class="field-help">${tr("On iPhone: add Mydo to the Home Screen, open its icon, then allow notifications. Only reminder task titles, dates and notification settings are sent to your Supabase service. Notes stay on this browser.", "iPhone：先將 Mydo 加入主畫面，再從圖示開啟並允許通知。只有提醒任務的標題、日期及通知設定會傳送至你的 Supabase；備註留在本機。")}</p><div id="phone-service" role="status">${tr("Checking notification service…", "正在檢查通知服務…")}</div>${phone.session ? `<p class="signed-in">${tr("Signed in", "已登入")} · ${esc(phone.session.user?.email || "")}</p><div class="phone-actions"><button class="primary" id="enable-phone" disabled>${phone.enabled ? tr("Reconnect notifications", "重新連接通知") : tr("Enable this phone", "啟用這部手機")}</button>${phone.enabled ? `<button class="secondary" id="test-phone">${tr("Send test notification", "發送測試通知")}</button><button class="secondary" id="stop-phone">${tr("Stop this phone's reminders", "停止這部手機的提醒")}</button>` : ""}<button class="text-button" id="logout-phone">${tr("Stop reminders & sign out", "停止提醒並登出")}</button></div>` : `<form id="phone-login"><label>${tr("Myfin cloud account email", "Myfin 雲端帳戶電郵")}<input name="email" type="email" autocomplete="username" required></label><label>${tr("Password", "密碼")}<input name="password" type="password" autocomplete="current-password" required></label><button type="submit" class="primary">${tr("Sign in", "登入")}</button></form>`}<p class="form-error" id="phone-error" role="alert"></p><p class="field-help">${tr("Your task list is still stored on this device. Notifications are best-effort, not an alarm clock. Offline completion needs a successful sync to stop further reminders.", "任務清單仍存在這部裝置。通知可能因網絡或專注模式而延遲，不是鬧鐘。離線標記完成後，需要成功同步才會停止後續提醒。")}</p></section>`;
+  if (!dialog.open) dialog.showModal();
+  phone
+    .config()
+    .then((c) => {
+      if (!$("#phone-service")) return;
+      $("#phone-service").textContent = c.ready
+        ? tr("Notification service connected", "通知服務已連線")
+        : tr("Notification service is awaiting setup", "通知服務有待完成設定");
+      if ($("#enable-phone")) $("#enable-phone").disabled = !c.ready;
+    })
+    .catch((e) => {
+      if ($("#phone-service")) $("#phone-service").textContent = phoneError(e);
+    });
+  const run = async (button, fn, success) => {
+    button.disabled = true;
+    try {
+      await fn();
+      openPhoneSettings();
+      if (success) toast(success);
+    } catch (e) {
+      if ($("#phone-error")) $("#phone-error").textContent = phoneError(e);
+      button.disabled = false;
+    }
+  };
+  if ($("#phone-login"))
+    $("#phone-login").onsubmit = (e) => {
+      e.preventDefault();
+      const f = new FormData(e.target);
+      run(
+        e.submitter,
+        () => phone.login(f.get("email"), f.get("password")),
+        tr(
+          "Signed in. Now enable notifications on this phone.",
+          "已登入，現在可以啟用這部手機的通知。",
+        ),
+      );
+      e.target.password.value = "";
+    };
+  if ($("#enable-phone"))
+    $("#enable-phone").onclick = (e) =>
+      run(
+        e.currentTarget,
+        () => phone.enable(),
+        tr(
+          "Phone reminders enabled. Send a test to check delivery.",
+          "手機提醒已啟用，請發送測試通知確認接收。",
+        ),
+      );
+  if ($("#test-phone"))
+    $("#test-phone").onclick = (e) =>
+      run(
+        e.currentTarget,
+        () => phone.test(),
+        tr(
+          "Test accepted by the push service. Check your phone.",
+          "推播服務已接受測試通知，請查看手機。",
+        ),
+      );
+  if ($("#stop-phone"))
+    $("#stop-phone").onclick = (e) =>
+      run(
+        e.currentTarget,
+        () => phone.disable(),
+        tr("This phone's reminders stopped.", "已停止這部手機的提醒。"),
+      );
+  if ($("#logout-phone"))
+    $("#logout-phone").onclick = (e) =>
+      run(e.currentTarget, () => phone.logout(), tr("Signed out.", "已登出。"));
+}
+
+if ("serviceWorker" in navigator)
+  navigator.serviceWorker.addEventListener("message", (e) => {
+    if (e.data?.type === "mydo-open-task") {
+      view = "all";
+      location.hash = "all";
+      render();
+      if (tasks.some((t) => t.id === e.data.taskId)) openEditor(e.data.taskId);
+    }
+  });
+const notificationTask = new URL(location.href).searchParams.get("task");
+if (notificationTask) {
+  const clean = new URL(location.href);
+  clean.searchParams.delete("task");
+  history.replaceState(null, "", clean);
+  if (tasks.some((t) => t.id === notificationTask))
+    openEditor(notificationTask);
 }

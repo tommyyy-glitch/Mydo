@@ -1819,3 +1819,105 @@ form small,
     bottom: calc(87px + env(safe-area-inset-bottom));
   }
 }
+
+.reminder-fields {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+}
+.reminder-fields legend {
+  padding: 0 6px;
+  margin: 0;
+}
+.reminder-fields > label,
+.reminder-fields .form-grid > label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.reminder-fields .reminder-toggle {
+  flex-direction: row;
+  align-items: center;
+  min-height: 36px;
+  color: var(--text);
+}
+.reminder-toggle input {
+  accent-color: var(--mint);
+  width: 18px;
+  height: 18px;
+  margin-right: 4px;
+}
+.reminder-fields select {
+  width: 100%;
+  min-height: 42px;
+  background: #121914;
+  color: var(--text);
+  border: 1px solid #425045;
+  border-radius: 7px;
+  padding: 9px;
+}
+.phone-panel {
+  padding: 28px;
+  display: grid;
+  gap: 18px;
+}
+.phone-panel p {
+  line-height: 1.7;
+  margin: 0;
+  font-size: 13px;
+}
+.phone-panel .field-help {
+  font-size: 11px;
+}
+.phone-panel form {
+  display: grid;
+  gap: 16px;
+}
+.phone-panel form label {
+  display: grid;
+  gap: 8px;
+  font-size: 13px;
+}
+.phone-actions {
+  display: grid;
+  gap: 12px;
+}
+.push-status {
+  font-size: 10px;
+  color: var(--mint);
+  margin: 0 0 16px;
+  line-height: 1.6;
+}
+.push-pending {
+  color: var(--amber);
+  border: 1px solid #5f4d31;
+  border-radius: 7px;
+  padding: 10px;
+}
+#phone-service {
+  font-size: 12px;
+  color: var(--amber);
+  line-height: 1.7;
+}
+.phone-actions button:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+@media (max-width: 580px) {
+  .phone-panel {
+    padding: 24px 18px;
+  }
+  .reminder-fields {
+    padding: 12px;
+  }
+  .reminder-fields select {
+    font-size: 16px;
+  }
+  .reminder-toggle {
+    min-height: 44px !important;
+  }
+}
