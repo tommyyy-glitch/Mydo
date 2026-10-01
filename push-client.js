@@ -87,10 +87,27 @@ export class PhoneReminders {
       !this.session.expires_at ||
       this.session.expires_at * 1000 < Date.now() + 60000
     )
-      await this.auth("token?grant_type=refresh_token", {
-        refresh_token: this.session.refresh_token,
-      });
+      {
+        // Cloud and notification sync can request a token at the same time.
+        if (!this.refreshing)
+          this.refreshing = this.auth("token?grant_type=refresh_token", {
+            refresh_token: this.session.refresh_token,
+          }).finally(() => { this.refreshing = null; });
+        await this.refreshing;
+      }
     return this.session.access_token;
+  }
+  async rpc(name, body) {
+    const token = await this.token();
+    const res = await fetch(URL + "/rest/v1/rpc/" + name, {
+      method: "POST",
+      headers: { apikey: PUBLIC_KEY, Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify(body), signal: AbortSignal.timeout(20000),
+    });
+    if (res.status === 401) throw Error("login");
+    if (!res.ok) throw Error("service");
+    const text = await res.text();
+    return text ? JSON.parse(text) : null;
   }
   async call(action, extra = {}) {
     const token = await this.token();

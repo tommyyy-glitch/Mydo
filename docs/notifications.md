@@ -25,11 +25,11 @@ Claims are leased for five minutes and skipped by concurrent dispatches. Unchang
 - Cron delivered successive requests with HTTP 200 and `{"sent":0,"failed":0}` before any phone subscription existed.
 - Pinned Web Push package generated an encrypted payload and VAPID authorization against a synthetic Apple endpoint; no push was sent by that local encryption test.
 - Browser QA: missing deadline rejected for due mode; due + daily saved; settings persisted after reload; task completed; layout inspected at 393×852. Existing top safe-area styling retained.
-- Actual lock-screen delivery requires the user's iPhone subscription, notification permission and a received test notification. That hardware check remains pending.
+- Actual lock-screen delivery requires the user's iPhone subscription, notification permission and a received test notification. The user confirmed receipt of the system test notification on September 27. This does not confirm every later scheduled reminder.
 
 ## Operational limits
 
-The app is local-first, with no complete task backup/sync. Only enabled reminder tasks are copied to the server. Offline completion cannot retract reminders until successful sync. A notification already in flight may still arrive. A due-day reminder is not replayed the following day; daily reminders continue until completion. Supabase project availability/quotas, browser subscription lifetime, network access and iOS Focus/notification settings affect delivery. The feature is a reminder, not a safety-critical alarm.
+The app is local-first. Without cloud task sync, only enabled reminder tasks are copied to the server. With cloud task sync enabled, the full list is shared in the signed-in account; see cloud-sync.md. Offline completion cannot retract reminders until successful sync. A notification already in flight may still arrive. A due-day reminder is not replayed the following day; daily reminders continue until completion. Supabase project availability/quotas, browser subscription lifetime, network access and iOS Focus/notification settings affect delivery. The feature is a reminder, not a safety-critical alarm.
 
 ## Password recovery
 

@@ -65,8 +65,12 @@ GitHub Pages can serve the repository root directly from `main`. All assets and 
 
 Due-day reminders are sent on that calendar date after the selected time. Daily reminders start on the chosen date and continue after a deadline until completion. Both modes combine on the due date. The scheduler checks every minute; this is best-effort delivery, not an exact alarm. Focus mode, network availability, permissions, service outages and OS behavior can delay or suppress notifications. Past days are not replayed.
 
-Completion, deletion and disabled task reminders are removed from the server after successful sync. **Offline changes cannot cancel already scheduled server reminders until reconnecting and syncing.** Pending sync is shown in the app. Use **Stop this phone's reminders** to disable the device remotely. Task storage remains local and the cloud reminder copy is not a backup.
+Completion, deletion and disabled task reminders are removed from the server after successful sync. **Offline changes cannot cancel already scheduled server reminders until reconnecting and syncing.** Pending sync is shown in the app. Use **Stop this phone's reminders** to disable the device remotely. Task storage remains local unless you enable cloud task sync. The notification-only copy is not a full backup.
 
 The service accepts up to 100 active reminder tasks per device. Each device has its own subscription and reminder copy. Signing out of notifications stops that device's reminders. Push subscription expiration requires reconnecting notifications from that device. Losing browser data can lose the local device identity; remove stale subscriptions administratively if needed.
 
 See [notification deployment](docs/notifications.md) for server setup and verification.
+
+## Cloud task sync
+
+Open **Cloud tasks / 雲端任務**, sign in with the same Myfin cloud account, then select **Enable cloud task sync**. Existing local tasks are backed up and merged with the cloud list. Devices using the same account receive cloud tasks on opening or returning to Mydo, or with **Sync tasks now**. Offline edits remain saved locally until reconnecting. Cloud-linked phone reminders also update when a task is added or completed elsewhere. See [cloud sync](docs/cloud-sync.md) for conflict handling, deployment and verification.

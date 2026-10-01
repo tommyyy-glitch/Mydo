@@ -1,4 +1,5 @@
 import { PhoneReminders } from "./push-client.js";
+import { CloudTasks } from "./cloud-sync.js";
 import {
   today,
   dayDiff,
@@ -14,7 +15,10 @@ import {
   parseBackup,
   demoTasks,
 } from "./model.js";
-let phone;
+let phone, cloud;
+function syncAll() {
+  return (cloud?.enabled ? cloud.sync() : Promise.resolve()).then(() => phone?.sync());
+}
 const KEY = "mydo.v1",
   LANG = "mydo.lang";
 let tasks = [],
@@ -128,7 +132,7 @@ function commit(next) {
     localStorage.setItem(KEY, JSON.stringify({ version: 1, tasks: next }));
   tasks = next;
   render();
-  if (!demo) phone?.sync();
+  if (!demo) syncAll();
 }
 function dateLabel(d) {
   const days = dayDiff(d);
@@ -158,11 +162,19 @@ function filtered() {
           .includes(search.toLowerCase())),
   );
 }
+function reminderLabel(t) {
+  const r = t.reminder;
+  if (t.done || !r || (!r.onDue && !r.daily)) return "";
+  const modes = [];
+  if (r.daily) modes.push(tr(`Daily from ${r.start}`, `每日提醒由 ${r.start} 開始`));
+  if (r.onDue) modes.push(tr(`Due-date reminder ${t.due}`, `截止日提醒 ${t.due}`));
+  return `<span class="reminder-caption">${icon("clock")}${esc(modes.join(" · "))} · ${esc(r.time)} (${esc(r.timeZone)})</span>`;
+}
 function card(t, compact = false) {
   const blocked = blockers(t, tasks),
     down = descendants(t.id, tasks).filter((t) => !t.done),
     due = effectiveDue(t, tasks);
-  return `<article class="task ${t.done ? "done" : ""} ${blocked.length ? "blocked" : ""}"><button class="task-check ${t.done ? "checked" : ""}" data-toggle="${esc(t.id)}" aria-label="${esc(tr(t.done ? "Reopen: " : "Complete: ", t.done ? "重新開啟：" : "完成：") + t.title)}" ${blocked.length ? 'aria-disabled="true"' : ""}>${t.done ? icon("check") : blocked.length ? icon("lock") : ""}</button><button class="task-body" data-edit="${esc(t.id)}"><span class="task-title">${esc(t.title)}</span><span class="task-meta"><span class="project-label">${esc(t.project || tr("Unsorted", "未分類"))}</span><span class="badge ${t.intent === "must" ? "must" : ""}">${t.intent === "must" ? "Must" : "Want"}</span>${!compact ? dueBadge(t) : ""}${blocked.length ? `<span class="badge muted">${icon("lock")}${blocked.length} ${tr("prerequisite", "個前置")}</span>` : down.length ? `<span class="badge mint">${icon("paths")}${tr(`Unlocks ${down.length}`, `解鎖 ${down.length} 項`)}</span>` : ""}</span>${!compact && due && due !== t.due && !t.done ? `<span class="inherited">${tr("Needed for a task due", "後續任務期限為")} ${esc(due)} ${tr("· not your own deadline", "· 此項本身沒有這個期限")}</span>` : ""}</button>${!compact ? `<span class="task-end">${icon("arrow")}</span>` : ""}</article>`;
+  return `<article class="task ${t.done ? "done" : ""} ${blocked.length ? "blocked" : ""}"><button class="task-check ${t.done ? "checked" : ""}" data-toggle="${esc(t.id)}" aria-label="${esc(tr(t.done ? "Reopen: " : "Complete: ", t.done ? "重新開啟：" : "完成：") + t.title)}" ${blocked.length ? 'aria-disabled="true"' : ""}>${t.done ? icon("check") : blocked.length ? icon("lock") : ""}</button><button class="task-body" data-edit="${esc(t.id)}"><span class="task-title">${esc(t.title)}</span><span class="task-meta"><span class="project-label">${esc(t.project || tr("Unsorted", "未分類"))}</span><span class="badge ${t.intent === "must" ? "must" : ""}">${t.intent === "must" ? "Must" : "Want"}</span>${!compact ? dueBadge(t) : ""}${blocked.length ? `<span class="badge muted">${icon("lock")}${blocked.length} ${tr("prerequisite", "個前置")}</span>` : down.length ? `<span class="badge mint">${icon("paths")}${tr(`Unlocks ${down.length}`, `解鎖 ${down.length} 項`)}</span>` : ""}</span>${!compact && due && due !== t.due && !t.done ? `<span class="inherited">${tr("Needed for a task due", "後續任務期限為")} ${esc(due)} ${tr("· not your own deadline", "· 此項本身沒有這個期限")}</span>` : ""}${!compact ? reminderLabel(t) : ""}</button>${!compact ? `<span class="task-end">${icon("arrow")}</span>` : ""}</article>`;
 }
 function empty() {
   if (tasks.length)
@@ -298,7 +310,7 @@ function render() {
       )
       .join(
         "",
-      )}</nav><div class="sidebar-bottom"><div class="night-note">${icon("moon")}<span>${tr("Less noise.<br>More intention.", "少一點雜音。<br>多一點從容。")}</span></div><button class="small-button" id="export">${icon("down")}${tr("Export backup", "匯出備份")}</button><button class="small-button" id="import">${tr("Import backup", "匯入備份")}</button><button class="small-button" id="phone-settings">${icon("clock")}${tr("Phone reminders", "手機通知")}</button><button class="small-button" id="install-help">${icon("plus")}${tr("Add to iPhone", "加入 iPhone 主畫面")}</button><div class="storage-dot"><span></span>${demo ? tr("Example · changes not saved", "範例 · 更改不會儲存") : tr("Saved on this browser", "儲存於此瀏覽器")}</div></div></aside><div class="workspace"><header class="topbar"><div class="breadcrumb">${tr("My space", "我的空間")} <span>/</span> ${names()[view]}</div><div class="top-actions"><button id="language" class="language" aria-label="${tr("Switch to Chinese", "切換至英文")}">EN <span>/</span> 繁中</button><span class="avatar" aria-hidden="true">M</span></div></header><main id="main"><div class="page-heading"><div><div class="eyebrow">${esc(new Intl.DateTimeFormat(lang === "zh" ? "zh-HK" : "en-GB", { weekday: "long", day: "numeric", month: "long" }).format(new Date()))}</div><h1>${names()[view]}<span class="heading-dot">.</span></h1><p>${tr("A clear head. A meaningful next step.", "思緒清晰一點，下一步踏實一點。")}</p></div><button class="primary add-main" data-new>${icon("plus")}${tr("New task", "新增任務")}<kbd>N</kbd></button></div>${recovery ? `<div class="banner danger">${tr("Your stored data could not be read. It has been preserved. Export it before restoring a valid backup.", "無法讀取現有資料，原始資料已保留。請先匯出，再還原有效備份。")}</div>` : ""}${demo ? `<div class="banner">${tr("You’re exploring sample tasks. Nothing here is saved to your list.", "你正在瀏覽範例任務，更改不會存入你的清單。")}<button class="text-button" id="exit-demo">${tr("Back to my tasks", "返回我的任務")} ${icon("arrow")}</button></div>` : ""}<div class="stats"><div><span>${tr("Open tasks", "待處理任務")}</span><strong>${active.length.toString().padStart(2, "0")}</strong></div><div><span><i class="stat-dot mint"></i>${tr("Ready to start", "可以開始")}</span><strong>${ready.length.toString().padStart(2, "0")}</strong></div><div><span><i class="stat-dot amber"></i>${tr("Due soon / overdue", "快到期／已逾期")}</span><strong>${dues.toString().padStart(2, "0")}</strong></div><div><span>${icon("lock")}${tr("Waiting on a step", "等待前置步驟")}</span><strong>${blocked.toString().padStart(2, "0")}</strong></div></div><div class="toolbar"><div class="view-tabs">${Object.entries(
+      )}</nav><div class="sidebar-bottom"><div class="night-note">${icon("moon")}<span>${tr("Less noise.<br>More intention.", "少一點雜音。<br>多一點從容。")}</span></div><button class="small-button" id="export">${icon("down")}${tr("Export backup", "匯出備份")}</button><button class="small-button" id="import">${tr("Import backup", "匯入備份")}</button><button class="small-button" id="cloud-settings">${icon("all")}${tr("Cloud tasks", "雲端任務")}</button><button class="small-button" id="phone-settings">${icon("clock")}${tr("Phone reminders", "手機通知")}</button><button class="small-button" id="install-help">${icon("plus")}${tr("Add to iPhone", "加入 iPhone 主畫面")}</button><div class="storage-dot"><span></span>${demo ? tr("Example · changes not saved", "範例 · 更改不會儲存") : tr("Saved on this browser", "儲存於此瀏覽器")}</div></div></aside><div class="workspace"><header class="topbar"><div class="breadcrumb">${tr("My space", "我的空間")} <span>/</span> ${names()[view]}</div><div class="top-actions"><button id="language" class="language" aria-label="${tr("Switch to Chinese", "切換至英文")}">EN <span>/</span> 繁中</button><span class="avatar" aria-hidden="true">M</span></div></header><main id="main"><div class="page-heading"><div><div class="eyebrow">${esc(new Intl.DateTimeFormat(lang === "zh" ? "zh-HK" : "en-GB", { weekday: "long", day: "numeric", month: "long" }).format(new Date()))}</div><h1>${names()[view]}<span class="heading-dot">.</span></h1><p>${tr("A clear head. A meaningful next step.", "思緒清晰一點，下一步踏實一點。")}</p></div><button class="primary add-main" data-new>${icon("plus")}${tr("New task", "新增任務")}<kbd>N</kbd></button></div>${recovery ? `<div class="banner danger">${tr("Your stored data could not be read. It has been preserved. Export it before restoring a valid backup.", "無法讀取現有資料，原始資料已保留。請先匯出，再還原有效備份。")}</div>` : ""}${demo ? `<div class="banner">${tr("You’re exploring sample tasks. Nothing here is saved to your list.", "你正在瀏覽範例任務，更改不會存入你的清單。")}<button class="text-button" id="exit-demo">${tr("Back to my tasks", "返回我的任務")} ${icon("arrow")}</button></div>` : ""}<div class="stats"><div><span>${tr("Open tasks", "待處理任務")}</span><strong>${active.length.toString().padStart(2, "0")}</strong></div><div><span><i class="stat-dot mint"></i>${tr("Ready to start", "可以開始")}</span><strong>${ready.length.toString().padStart(2, "0")}</strong></div><div><span><i class="stat-dot amber"></i>${tr("Due soon / overdue", "快到期／已逾期")}</span><strong>${dues.toString().padStart(2, "0")}</strong></div><div><span>${icon("lock")}${tr("Waiting on a step", "等待前置步驟")}</span><strong>${blocked.toString().padStart(2, "0")}</strong></div></div><div class="toolbar"><div class="view-tabs">${Object.entries(
       names(),
     )
       .map(
@@ -326,7 +338,7 @@ function openEditor(id = "", defaults = {}) {
     deps = tasks.filter((x) => x.id !== t.id),
     followers = tasks.filter((x) => x.deps.includes(t.id));
   const dialog = $("#editor");
-  dialog.innerHTML = `<form id="task-form"><header class="dialog-header"><div><div class="eyebrow">${tr("MAKE THE NEXT STEP CLEAR", "把下一步想清楚")}</div><h2 id="editor-title">${existing ? tr("Task details", "任務詳情") : tr("Something on your mind?", "有什麼想做？")}</h2></div><button type="button" class="icon-button" data-close aria-label="${tr("Close", "關閉")}">${icon("close")}</button></header><label><span>${tr("Task name", "任務名稱")} *</span><input name="title" maxlength="200" required placeholder="${tr("What needs to happen?", "需要完成什麼？")}" value="${esc(t.title)}"></label><div class="form-grid"><fieldset><legend>${tr("How important is it to you?", "對你有多必要？")}</legend><div class="segmented"><label><input type="radio" name="intent" value="must" ${t.intent === "must" ? "checked" : ""}><span>Must · ${tr("Need to", "必須做")}</span></label><label><input type="radio" name="intent" value="want" ${t.intent === "want" ? "checked" : ""}><span>Want · ${tr("Like to", "想做")}</span></label></div></fieldset><fieldset><legend>${tr("Does it feel urgent?", "現在需要急著做嗎？")}</legend><div class="segmented"><label><input type="radio" name="urgent" value="true" ${t.urgent ? "checked" : ""}><span>${tr("Urgent", "緊急")}</span></label><label><input type="radio" name="urgent" value="false" ${!t.urgent ? "checked" : ""}><span>${tr("Not urgent", "不緊急")}</span></label></div></fieldset></div><div class="form-grid"><label>${tr("Real deadline", "真實截止日期")}<input name="due" type="date" min="1900-01-01" max="9999-12-31" value="${esc(t.due)}"><small>${tr("Optional. End of this day, in your local time.", "可留空，以你所在地當日結束為準。")}</small></label><label>${tr("Group / project", "分組／專案")}<input name="project" maxlength="80" list="projects" value="${esc(t.project)}" placeholder="${tr("e.g. Work, Life, Personal", "例如：工作、生活、個人")}" ><datalist id="projects">${[...new Set(tasks.map((t) => t.project))].map((p) => `<option value="${esc(p)}"></option>`).join("")}</datalist><small>${tr("Choose an existing name or type a new one. The group appears after you save the task.", "選擇現有名稱或輸入新名稱；儲存任務後，分組便會出現。")}</small></label></div><fieldset><legend>${icon("paths")}${tr("What needs to happen first?", "需要先完成什麼？")}</legend><p class="field-help">${tr("Select all prerequisites. This task unlocks when all are complete.", "選取所有前置任務，全部完成後才會解鎖此任務。")}</p><div class="dep-picker">${deps.length ? deps.map((d) => `<label><input type="checkbox" name="deps" value="${esc(d.id)}" ${t.deps.includes(d.id) ? "checked" : ""}><span>${esc(d.title)}${d.done ? ` <small>✓ ${tr("Done", "已完成")}</small>` : ""}</span><button type="button" class="text-button dep-open" data-edit="${esc(d.id)}" aria-label="${esc(tr("Open ", "開啟 ") + d.title)}">↗</button></label>`).join("") : `<small>${tr("Create another task to connect it here.", "建立另一個任務後，就能在此連接。")}</small>`}</div></fieldset>${followers.length ? `<div class="followups"><strong>${tr("What this unlocks", "完成後可解鎖")}</strong>${followers.map((f) => `<button type="button" class="text-button" data-edit="${esc(f.id)}">${esc(f.title)} ${icon("arrow")}</button>`).join("")}</div>` : ""}<fieldset class="reminder-fields"><legend>${icon("clock")}${tr("Phone reminders", "手機通知")}</legend><p class="field-help">${tr("Lock-screen notifications. Enable this phone in Phone reminders first.", "鎖定畫面通知。請先在「手機通知」啟用這部手機。")}</p><label class="reminder-toggle"><input type="checkbox" name="remindDue" ${t.reminder?.onDue ? "checked" : ""}>${tr("Remind me on the due date", "截止日通知我")}</label><label class="reminder-toggle"><input type="checkbox" name="remindDaily" ${t.reminder?.daily ? "checked" : ""}>${tr("Every day until completed", "每天提醒，直到完成")}</label><div class="form-grid"><label>${tr("Notification time", "通知時間")}<input type="time" name="remindTime" required value="${esc(t.reminder?.time || "09:00")}"></label><label>${tr("Daily reminders start", "每日提醒開始日期")}<input type="date" name="remindStart" value="${esc(t.reminder?.start || t.due || today())}"></label></div><label>${tr("Time zone", "時區")}<select name="remindZone">${[...new Set([t.reminder?.timeZone, Intl.DateTimeFormat().resolvedOptions().timeZone, "Asia/Hong_Kong", "UTC"].filter(Boolean))].map((z) => `<option value="${esc(z)}" ${z === (t.reminder?.timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone) ? "selected" : ""}>${esc(z)}</option>`).join("")}</select></label><small>${tr("Due-date and daily reminders are combined on the due date. Marking complete offline stops future pushes only after reconnecting.", "兩項同時開啟時，截止日只通知一次。離線標記完成後，要重新連線同步才會停止後續推播。")}</small></fieldset><label>${tr("Notes", "備註")}<textarea name="notes" maxlength="5000" rows="3" placeholder="${tr("A little context for your future self…", "留些提示給之後的自己…")}">${esc(t.notes)}</textarea></label><p class="form-error" id="form-error" role="alert"></p><div class="dialog-footer">${existing ? `<button type="button" class="text-button danger-text" data-delete="${esc(t.id)}">${tr("Delete task", "刪除任務")}</button>` : "<span></span>"}<div><button type="button" class="secondary" data-close>${tr("Cancel", "取消")}</button><button type="submit" class="primary">${tr("Save task", "儲存任務")}</button></div></div>${existing ? `<button type="submit" class="secondary" name="complete" value="true">${icon(t.done ? "all" : "check")}${t.done ? tr("Reopen task", "重新開啟任務") : tr("Mark complete", "標記完成")}</button>` : ""}</form>`;
+  dialog.innerHTML = `<form id="task-form"><header class="dialog-header"><div><div class="eyebrow">${tr("MAKE THE NEXT STEP CLEAR", "把下一步想清楚")}</div><h2 id="editor-title">${existing ? tr("Task details", "任務詳情") : tr("Something on your mind?", "有什麼想做？")}</h2></div><button type="button" class="icon-button" data-close aria-label="${tr("Close", "關閉")}">${icon("close")}</button></header><label><span>${tr("Task name", "任務名稱")} *</span><input name="title" maxlength="200" required placeholder="${tr("What needs to happen?", "需要完成什麼？")}" value="${esc(t.title)}"></label><div class="form-grid"><fieldset><legend>${tr("How important is it to you?", "對你有多必要？")}</legend><div class="segmented"><label><input type="radio" name="intent" value="must" ${t.intent === "must" ? "checked" : ""}><span>Must · ${tr("Need to", "必須做")}</span></label><label><input type="radio" name="intent" value="want" ${t.intent === "want" ? "checked" : ""}><span>Want · ${tr("Like to", "想做")}</span></label></div></fieldset><fieldset><legend>${tr("Does it feel urgent?", "現在需要急著做嗎？")}</legend><div class="segmented"><label><input type="radio" name="urgent" value="true" ${t.urgent ? "checked" : ""}><span>${tr("Urgent", "緊急")}</span></label><label><input type="radio" name="urgent" value="false" ${!t.urgent ? "checked" : ""}><span>${tr("Not urgent", "不緊急")}</span></label></div></fieldset></div><div class="form-grid"><label>${tr("Real deadline", "真實截止日期")}<input name="due" type="date" min="1900-01-01" max="9999-12-31" value="${esc(t.due)}"><small>${tr("Optional. End of this day, in your local time.", "可留空，以你所在地當日結束為準。")}</small></label><label>${tr("Group / project", "分組／專案")}<input name="project" maxlength="80" list="projects" value="${esc(t.project)}" placeholder="${tr("e.g. Work, Life, Personal", "例如：工作、生活、個人")}" ><datalist id="projects">${[...new Set(tasks.map((t) => t.project))].map((p) => `<option value="${esc(p)}"></option>`).join("")}</datalist><small>${tr("Choose an existing name or type a new one. The group appears after you save the task.", "選擇現有名稱或輸入新名稱；儲存任務後，分組便會出現。")}</small></label></div><fieldset><legend>${icon("paths")}${tr("What needs to happen first?", "需要先完成什麼？")}</legend><p class="field-help">${tr("Select all prerequisites. This task unlocks when all are complete.", "選取所有前置任務，全部完成後才會解鎖此任務。")}</p><div class="dep-picker">${deps.length ? deps.map((d) => `<label><input type="checkbox" name="deps" value="${esc(d.id)}" ${t.deps.includes(d.id) ? "checked" : ""}><span>${esc(d.title)}${d.done ? ` <small>✓ ${tr("Done", "已完成")}</small>` : ""}</span><button type="button" class="text-button dep-open" data-edit="${esc(d.id)}" aria-label="${esc(tr("Open ", "開啟 ") + d.title)}">↗</button></label>`).join("") : `<small>${tr("Create another task to connect it here.", "建立另一個任務後，就能在此連接。")}</small>`}</div></fieldset>${followers.length ? `<div class="followups"><strong>${tr("What this unlocks", "完成後可解鎖")}</strong>${followers.map((f) => `<button type="button" class="text-button" data-edit="${esc(f.id)}">${esc(f.title)} ${icon("arrow")}</button>`).join("")}</div>` : ""}<fieldset class="reminder-fields"><legend>${icon("clock")}${tr("Phone reminders", "手機通知")}</legend><p class="field-help">${tr("Lock-screen notifications. Enable this phone in Phone reminders first.", "鎖定畫面通知。請先在「手機通知」啟用這部手機。")}</p><label class="reminder-toggle"><input type="checkbox" name="remindDue" ${t.reminder?.onDue ? "checked" : ""}>${tr("Remind me on the due date", "截止日通知我")}</label><label class="reminder-toggle"><input type="checkbox" name="remindDaily" ${t.reminder?.daily ? "checked" : ""}>${tr("Every day until completed", "每天提醒，直到完成")}</label><div class="form-grid"><label>${tr("Notification time", "通知時間")}<input type="time" name="remindTime" required value="${esc(t.reminder?.time || "09:00")}"></label><label>${tr("Daily reminders start", "每日提醒開始日期")}<input type="date" name="remindStart" value="${esc(t.reminder?.start || today())}"></label></div><label>${tr("Time zone", "時區")}<select name="remindZone">${[...new Set([t.reminder?.timeZone, Intl.DateTimeFormat().resolvedOptions().timeZone, "Asia/Hong_Kong", "UTC"].filter(Boolean))].map((z) => `<option value="${esc(z)}" ${z === (t.reminder?.timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone) ? "selected" : ""}>${esc(z)}</option>`).join("")}</select></label><small>${tr("Due-date and daily reminders are combined on the due date. Marking complete offline stops future pushes only after reconnecting.", "兩項同時開啟時，截止日只通知一次。離線標記完成後，要重新連線同步才會停止後續推播。")}</small></fieldset><label>${tr("Notes", "備註")}<textarea name="notes" maxlength="5000" rows="3" placeholder="${tr("A little context for your future self…", "留些提示給之後的自己…")}">${esc(t.notes)}</textarea></label><p class="form-error" id="form-error" role="alert"></p><div class="dialog-footer">${existing ? `<button type="button" class="text-button danger-text" data-delete="${esc(t.id)}">${tr("Delete task", "刪除任務")}</button>` : "<span></span>"}<div><button type="button" class="secondary" data-close>${tr("Cancel", "取消")}</button><button type="submit" class="primary">${tr("Save task", "儲存任務")}</button></div></div>${existing ? `<button type="submit" class="secondary" name="complete" value="true">${icon(t.done ? "all" : "check")}${t.done ? tr("Reopen task", "重新開啟任務") : tr("Mark complete", "標記完成")}</button>` : ""}</form>`;
   if (!dialog.open) dialog.showModal();
   dialog.querySelector("[name=title]").focus();
   $("#task-form").onsubmit = (e) => {
@@ -425,7 +437,7 @@ document.addEventListener("click", (e) => {
           toast(tr("Task deleted.", "已刪除任務。"));
         },
       );
-    } else if (b.id === "phone-settings") {
+    } else if (b.id === "phone-settings" || b.id === "cloud-settings") {
       openPhoneSettings();
     } else if (b.id === "install-help") {
       const d = $("#confirm");
@@ -438,7 +450,7 @@ document.addEventListener("click", (e) => {
         localStorage.setItem(LANG, lang);
       } catch {}
       render();
-      if (!demo) phone?.sync();
+      if (!demo) syncAll();
     } else if (b.hasAttribute("data-demo")) {
       demo = true;
       tasks = demoTasks();
@@ -499,7 +511,7 @@ $("#import-file").onchange = async (e) => {
         project = "";
         search = "";
         render();
-        phone?.sync();
+        syncAll();
         toast(tr("Backup restored.", "備份已還原。"));
       },
     );
@@ -522,7 +534,7 @@ window.addEventListener("storage", (e) => {
       $("#editor").close();
       $("#confirm").close();
       render();
-      phone?.sync();
+      syncAll();
       toast(tr("Updated from another tab.", "已同步另一分頁的更改。"));
     } catch {
       recovery = true;
@@ -565,7 +577,26 @@ phone = new PhoneReminders({
   },
 });
 render();
-if (phone.enabled && !recovery) phone.sync();
+cloud = new CloudTasks({
+  auth: phone,
+  getTasks: () => {
+    if (recovery) throw Error("storage");
+    return demo ? parseBackup(localStorage.getItem(KEY) || '{"version":1,"tasks":[]}') : tasks;
+  },
+  setTasks: (next) => {
+    validate(next);
+    if (recovery) throw Error("storage");
+    // Do not replace task state under an open editor containing an older draft.
+    if ($("#task-form") && $("#editor").open) throw Error("editing");
+    localStorage.setItem(KEY, JSON.stringify({ version: 1, tasks: next }));
+    if (!demo) { tasks = next; render(); }
+  },
+  onChange: () => { const el = $("#phone-sync-status"); if (el) el.innerHTML = phoneStatus(); },
+});
+if (!recovery) syncAll();
+window.addEventListener("online", () => { if (!recovery) syncAll(); });
+document.addEventListener("visibilitychange", () => { if (!document.hidden && !recovery) syncAll(); });
+setInterval(() => { if (!document.hidden && cloud.enabled && !recovery && !$("dialog[open]")) syncAll(); }, 30000);
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () =>
@@ -574,10 +605,17 @@ if ("serviceWorker" in navigator) {
 }
 
 function phoneStatus() {
-  if (demo || !phone?.enabled) return "";
+  if (demo) return "";
+  const cloudText = cloud?.enabled
+    ? `<p class="push-status ${cloud.message === "synced" ? "" : "push-pending"}">${cloud.message === "synced"
+      ? tr("Tasks synced to cloud · all your devices share this list", "任務已同步雲端 · 裝置共用同一清單")
+      : cloud.message === "conflict" ? tr("Conflicting changes. Open Cloud tasks to review; both copies are preserved.", "更改有衝突，請開啟「雲端任務」處理；兩份資料已保留。")
+      : tr("Task sync pending. Local changes are saved; open Cloud tasks to reconnect.", "任務尚待同步，本機更改已儲存；可開啟「雲端任務」重新連線。")}</p>`
+    : "";
+  if (!phone?.enabled) return cloudText;
   if (phone.message === "synced")
-    return `<p class="push-status">${tr("Phone reminders synced", "手機提醒已同步")}</p>`;
-  return `<p class="push-status push-pending">${tr("Reminder changes are not synced yet. Existing phone reminders may continue. Open Phone reminders to reconnect.", "提醒更改尚未同步，手機可能仍收到原有提醒。請開啟「手機通知」重新連線。")}</p>`;
+    return cloudText + `<p class="push-status">${tr("Phone reminders synced", "手機提醒已同步")}</p>`;
+  return cloudText + `<p class="push-status push-pending">${tr("Reminder changes are not synced yet. Existing phone reminders may continue. Open Phone reminders to reconnect.", "提醒更改尚未同步，手機可能仍收到原有提醒。請開啟「手機通知」重新連線。")}</p>`;
 }
 function phoneError(e) {
   return (
@@ -602,6 +640,10 @@ function phoneError(e) {
         "Wait a minute before sending another test notification.",
         "請等一分鐘再發送測試通知。",
       ),
+      conflict: tr("The same task was edited on two devices. Choose which conflicting values to keep. Other changes will be merged.", "同一任務在兩部裝置有不同更改。請選擇保留哪一邊的衝突內容，其餘更改會合併。"),
+      account: tr("This device is linked to another account. Export its tasks before switching accounts.", "此裝置綁定另一帳戶，切換前請先匯出任務。"),
+      pending: tr("Cloud sync could not finish. Your local list is preserved; try again online.", "雲端同步未完成，本機清單已保留，請連線後重試。"),
+      storage: tr("Could not read or save local tasks. Export a backup first.", "未能讀取或儲存本機任務，請先匯出備份。"),
       stopFirst: tr(
         "Stop this phone's reminders before changing accounts.",
         "請先停止這部手機的提醒，才切換帳戶。",
@@ -624,7 +666,7 @@ function openPhoneSettings() {
     return;
   }
   const dialog = $("#editor");
-  dialog.innerHTML = `<section class="phone-panel"><header class="dialog-header"><div><div class="eyebrow">MYDO</div><h2 id="editor-title">${tr("Phone reminders", "手機通知")}</h2></div><button class="icon-button" data-close aria-label="${tr("Close", "關閉")}">${icon("close")}</button></header><p>${tr("Get a lock-screen notification on the due date, or every day until a task is completed.", "截止日收到鎖定畫面通知，或每天提醒直到任務完成。")}</p><p class="field-help">${tr("On iPhone: add Mydo to the Home Screen, open its icon, then allow notifications. Only reminder task titles, dates and notification settings are sent to your Supabase service. Notes stay on this browser.", "iPhone：先將 Mydo 加入主畫面，再從圖示開啟並允許通知。只有提醒任務的標題、日期及通知設定會傳送至你的 Supabase；備註留在本機。")}</p><div id="phone-service" role="status">${tr("Checking notification service…", "正在檢查通知服務…")}</div>${phone.session ? `<p class="signed-in">${tr("Signed in", "已登入")} · ${esc(phone.session.user?.email || "")}</p><div class="phone-actions"><button class="primary" id="enable-phone" disabled>${phone.enabled ? tr("Reconnect notifications", "重新連接通知") : tr("Enable this phone", "啟用這部手機")}</button>${phone.enabled ? `<button class="secondary" id="test-phone">${tr("Send test notification", "發送測試通知")}</button><button class="secondary" id="stop-phone">${tr("Stop this phone's reminders", "停止這部手機的提醒")}</button>` : ""}<button class="text-button" id="logout-phone">${tr("Stop reminders & sign out", "停止提醒並登出")}</button></div>` : `<form id="phone-login"><label>${tr("Myfin cloud account email", "Myfin 雲端帳戶電郵")}<input name="email" type="email" autocomplete="username" required></label><label>${tr("Password", "密碼")}<input name="password" type="password" autocomplete="current-password" required></label><button type="submit" class="primary">${tr("Sign in", "登入")}</button><a class="text-button" href="./reset.html" target="_blank" rel="noopener">${tr("Forgot password?", "忘記密碼？")}</a></form>`}<p class="form-error" id="phone-error" role="alert"></p><p class="field-help">${tr("Your task list is still stored on this device. Notifications are best-effort, not an alarm clock. Offline completion needs a successful sync to stop further reminders.", "任務清單仍存在這部裝置。通知可能因網絡或專注模式而延遲，不是鬧鐘。離線標記完成後，需要成功同步才會停止後續提醒。")}</p></section>`;
+  dialog.innerHTML = `<section class="phone-panel"><header class="dialog-header"><div><div class="eyebrow">MYDO</div><h2 id="editor-title">${tr("Cloud tasks & phone reminders", "雲端任務與手機通知")}</h2></div><button class="icon-button" data-close aria-label="${tr("Close", "關閉")}">${icon("close")}</button></header><p>${tr("Get a lock-screen notification on the due date, or every day until a task is completed.", "截止日收到鎖定畫面通知，或每天提醒直到任務完成。")}</p><p class="field-help">${tr("On iPhone: add Mydo to the Home Screen, open its icon, then allow notifications. Cloud sync shares the full task list, including notes, through your own Supabase account. Phone reminders can also be used on their own.", "iPhone：先將 Mydo 加入主畫面，再從圖示開啟並允許通知。雲端同步會把完整任務清單（包括備註）存至你的 Supabase 帳戶。也可只使用手機通知。")}</p><div id="phone-service" role="status">${tr("Checking notification service…", "正在檢查通知服務…")}</div>${phone.session ? `<p class="signed-in">${tr("Signed in", "已登入")} · ${esc(phone.session.user?.email || "")}</p><section class="cloud-panel"><h3>${tr("Task sync", "任務同步")}</h3><p>${cloud.enabled ? tr("Cloud sync is on. This device merges its saved tasks with your other devices.", "雲端同步已開啟，本機任務會與其他裝置合併。") : tr("Keep your existing tasks and merge them with your cloud list. A local backup is saved before the first sync.", "保留現有任務並與雲端清單合併，首次同步前會保存一份本機備份。")}</p><div class="phone-actions"><button class="primary" id="enable-cloud">${cloud.enabled ? tr("Sync tasks now", "立即同步任務") : tr("Enable cloud task sync", "啟用雲端任務同步")}</button>${cloud.enabled ? `<button class="secondary" id="cloud-backup">${tr("Export original local backup", "匯出原本的本機備份")}</button><button class="text-button" id="stop-cloud">${tr("Pause cloud sync on this device", "暫停此裝置的雲端同步")}</button>` : ""}${cloud.message === "conflict" ? `<p class="form-error">${phoneError(Error("conflict"))}</p><button class="secondary" id="cloud-local">${tr("Keep this device's conflicting values", "保留本機的衝突內容")}</button><button class="secondary" id="cloud-remote">${tr("Keep cloud conflicting values", "保留雲端的衝突內容")}</button>` : ""}</div></section><div class="phone-actions"><button class="primary" id="enable-phone" disabled>${phone.enabled ? tr("Reconnect notifications", "重新連接通知") : tr("Enable this phone", "啟用這部手機")}</button>${phone.enabled ? `<button class="secondary" id="test-phone">${tr("Send test notification", "發送測試通知")}</button><button class="secondary" id="stop-phone">${tr("Stop this phone's reminders", "停止這部手機的提醒")}</button>` : ""}<button class="text-button" id="logout-phone">${tr("Stop reminders & sign out", "停止提醒並登出")}</button></div>` : `<form id="phone-login"><label>${tr("Myfin cloud account email", "Myfin 雲端帳戶電郵")}<input name="email" type="email" autocomplete="username" required></label><label>${tr("Password", "密碼")}<input name="password" type="password" autocomplete="current-password" required></label><button type="submit" class="primary">${tr("Sign in", "登入")}</button><a class="text-button" href="./reset.html" target="_blank" rel="noopener">${tr("Forgot password?", "忘記密碼？")}</a></form>`}<p class="form-error" id="phone-error" role="alert"></p><p class="field-help">${tr("Tasks stay available offline. With cloud sync enabled, this account shares them across devices. Notifications are best-effort, not an alarm clock. Offline completion needs a successful sync to stop further reminders.", "任務可離線使用。啟用雲端同步後，同一帳戶會在裝置間共用清單。通知可能因網絡或專注模式而延遲，不是鬧鐘。離線標記完成後，需要成功同步才會停止後續提醒。")}</p></section>`;
   if (!dialog.open) dialog.showModal();
   phone
     .config()
@@ -649,6 +691,22 @@ function openPhoneSettings() {
       button.disabled = false;
     }
   };
+  if ($("#enable-cloud")) $("#enable-cloud").onclick = (e) => run(e.currentTarget, async () => {
+    if (cloud.enabled) { await cloud.sync(); if (cloud.message !== "synced") throw Error(cloud.message); }
+    else await cloud.enable();
+    await phone.sync();
+  }, tr("Cloud tasks synced.", "任務已同步雲端。"));
+  if ($("#stop-cloud")) $("#stop-cloud").onclick = (e) => run(e.currentTarget, () => cloud.disable(), tr("Cloud sync paused on this device.", "已暫停此裝置的雲端同步。"));
+  if ($("#cloud-backup")) $("#cloud-backup").onclick = () => {
+    const raw = localStorage.getItem("mydo.cloud.backup." + cloud.owner);
+    if (raw) download(raw);
+    else toast(tr("No original local backup on this device.", "此裝置沒有原本的本機備份。"));
+  };
+  for (const [id, preference] of [["cloud-local", "local"], ["cloud-remote", "remote"]])
+    if ($("#" + id)) $("#" + id).onclick = (e) => { const button = e.currentTarget; confirmAction(
+      tr("Resolve conflicting edits?", "處理衝突更改？"),
+      tr("Export a backup first if you need to keep both versions. Only conflicting values use your choice.", "如需保留兩個版本，請先匯出備份。你的選擇只套用到衝突內容。"),
+      () => run(button, async () => { await cloud.sync(preference); if (cloud.message !== "synced") throw Error(cloud.message); }, tr("Conflicts resolved.", "已處理衝突。"))); };
   if ($("#phone-login"))
     $("#phone-login").onsubmit = (e) => {
       e.preventDefault();
@@ -667,7 +725,7 @@ function openPhoneSettings() {
     $("#enable-phone").onclick = (e) =>
       run(
         e.currentTarget,
-        () => phone.enable(),
+        async () => { await phone.enable(); if (cloud.enabled) await cloud.sync(); },
         tr(
           "Phone reminders enabled. Send a test to check delivery.",
           "手機提醒已啟用，請發送測試通知確認接收。",
@@ -692,7 +750,7 @@ function openPhoneSettings() {
       );
   if ($("#logout-phone"))
     $("#logout-phone").onclick = (e) =>
-      run(e.currentTarget, () => phone.logout(), tr("Signed out.", "已登出。"));
+      run(e.currentTarget, async () => { if (cloud.enabled) await cloud.disable(); await phone.logout(); }, tr("Signed out.", "已登出。"));
 }
 
 if ("serviceWorker" in navigator)
