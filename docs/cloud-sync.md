@@ -16,7 +16,9 @@ For future tasks requested in this chat: use the signed-in Supabase SQL editor a
 
 - Node regression tests cover initial merge, deletion/completion, independent edits, conflicts, invalid dependencies, backups, offline retry, concurrent CAS and edits during in-flight requests, deterministic ordering and account mismatch.
 - Live Supabase transaction tests cover stale revision rejection, account/anonymous isolation, permission boundaries, dependency rejection, cloud-to-phone projection, old-phone sync preserving that projection, and completion removing it. QA data/schema changes were rolled back before the separate production migration.
-- Actual phone enable/merge still requires the user's unlocked iPhone Mirroring session or their activation in the app.
+- The iPhone PWA loaded the new Cloud tasks button while retaining all four original tasks. Its first sync produced five cloud tasks (the original four plus the chat-created test), revision 2, one cloud-linked phone and the original four reminder records. The user then resumed physical phone use, ending Mirroring before the final merged list could be captured.
+- The chat-created test task received a one-off due-date reminder for October 1 at 14:05 Asia/Hong_Kong. The normal cron scheduler delivered it and recorded provider acceptance. Physical notification receipt is awaiting the user's confirmation. The test is not a daily reminder; it can be marked complete in Mydo.
+- All 43 Node tests passed, including complete-shell activation and failed-download protection. GitHub checks/Pages succeeded and deployed JavaScript hashes matched the tested files. A previously cached production browser successfully loaded the new Cloud tasks button after the update.
 
 The service worker activates only after downloading the complete updated shell and revalidating the browser cache. Other open Mydo tabs no longer block installation. An already open page keeps its draft; reopening Mydo loads the new version. Local task storage is not cleared during updates.
 
