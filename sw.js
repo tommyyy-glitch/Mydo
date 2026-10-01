@@ -1,4 +1,4 @@
-const CACHE = "mydo-shell-" + self.registration.scope + "-v5";
+const CACHE = "mydo-shell-" + self.registration.scope + "-v6";
 const FILES = [
   "./",
   "index.html",
@@ -16,9 +16,15 @@ const FILES = [
 ];
 const URLS = FILES.map((p) => new URL(p, self.registration.scope).href);
 self.addEventListener("install", (event) =>
-  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(URLS))),
+  event.waitUntil((async () => {
+    const cache = await caches.open(CACHE);
+    // Revalidate the whole shell before activation; other open tabs must not
+    // indefinitely block updates. Existing pages keep their current drafts.
+    await cache.addAll(URLS.map(url => new Request(url, { cache: "reload" })));
+    await self.skipWaiting();
+  })()),
 );
-// Updates activate once all existing Mydo windows close, keeping each app version consistent.
+// The next navigation uses the complete new shell without reloading open drafts.
 self.addEventListener("activate", (event) =>
   event.waitUntil(
     (async () => {

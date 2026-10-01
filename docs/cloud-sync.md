@@ -18,6 +18,8 @@ For future tasks requested in this chat: use the signed-in Supabase SQL editor a
 - Live Supabase transaction tests cover stale revision rejection, account/anonymous isolation, permission boundaries, dependency rejection, cloud-to-phone projection, old-phone sync preserving that projection, and completion removing it. QA data/schema changes were rolled back before the separate production migration.
 - Actual phone enable/merge still requires the user's unlocked iPhone Mirroring session or their activation in the app.
 
+The service worker activates only after downloading the complete updated shell and revalidating the browser cache. Other open Mydo tabs no longer block installation. An already open page keeps its draft; reopening Mydo loads the new version. Local task storage is not cleared during updates.
+
 ## Reminder diagnosis — 2026-10-01
 
 The live minutely scheduler was active, with recent HTTP 200 dispatch responses. The Apple device was enabled and recently synchronized. Two tasks had today's `last_sent_on`; this records provider acceptance, not proof of visible lock-screen receipt. Two other daily reminders were configured to start on October 2 and October 10, so no earlier dispatch was due. Existing user start dates are preserved. New daily settings now default to today even when an existing task has a future deadline, and cards display the saved start date/time/time zone.
