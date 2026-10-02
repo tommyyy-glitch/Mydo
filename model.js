@@ -1,4 +1,8 @@
 import { validateReminder } from "./reminders.js";
+export const TASK_STATUSES = ["preparing", "ongoing", "almost", "complete"];
+// done remains the compatibility flag for backups and devices on the old app.
+export const taskStatus = (task) => task.done ? "complete"
+  : task.status && task.status !== "complete" ? task.status : "preparing";
 export const today = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -75,6 +79,7 @@ export function validate(tasks) {
       !["must", "want"].includes(t.intent) ||
       typeof t.urgent !== "boolean" ||
       typeof t.done !== "boolean" ||
+      (t.status !== undefined && !TASK_STATUSES.includes(t.status)) ||
       typeof t.project !== "string" ||
       t.project.length > 80 ||
       typeof t.notes !== "string" ||
@@ -125,11 +130,17 @@ export function saveTask(tasks, task) {
 export function toggleTask(tasks, id) {
   const task = tasks.find((t) => t.id === id);
   if (!task) throw Error("missing");
-  if (!task.done && blockers(task, tasks).length) throw Error("blocked");
-  if (task.done && descendants(id, tasks).some((t) => t.done))
+  return setTaskStatus(tasks, id, task.done ? "preparing" : "complete");
+}
+export function setTaskStatus(tasks, id, status) {
+  if (!TASK_STATUSES.includes(status)) throw Error("status");
+  const task = tasks.find((t) => t.id === id);
+  if (!task) throw Error("missing");
+  if (status === "complete" && blockers(task, tasks).length) throw Error("blocked");
+  if (task.done && status !== "complete" && descendants(id, tasks).some((t) => t.done))
     throw Error("reopen");
   return validate(
-    tasks.map((t) => (t.id === id ? { ...t, done: !t.done } : t)),
+    tasks.map((t) => (t.id === id ? { ...t, status, done: status === "complete" } : t)),
   );
 }
 export function deleteTask(tasks, id) {

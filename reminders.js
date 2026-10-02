@@ -1,5 +1,22 @@
 // Shared by the browser and the scheduler. A reminder's zone is explicit so
 // travelling or a server running in UTC cannot silently move the chosen time.
+export const repeatFrequency = (r) => r?.repeat ?? (r?.daily ? "daily" : "none");
+
+// Calendar arithmetic keeps the original monthly anchor, even after February.
+export function repeatOnDate(frequency, start, date) {
+  if (!start || date < start || frequency === "none") return false;
+  if (frequency === "daily") return true;
+  if (frequency === "weekly")
+    return (Date.parse(date) - Date.parse(start)) / 86400000 % 7 === 0;
+  if (frequency === "monthly") {
+    const day = Number(date.slice(8));
+    const end = new Date(date.slice(0, 7) + "-01T00:00:00Z");
+    end.setUTCMonth(end.getUTCMonth() + 1, 0);
+    const last = end.getUTCDate();
+    return day === Math.min(Number(start.slice(8)), last);
+  }
+  return false;
+}
 export function validDate(value) {
   return (
     typeof value === "string" &&
@@ -16,6 +33,9 @@ export function validateReminder(reminder, due = "") {
     Array.isArray(reminder) ||
     typeof reminder.onDue !== "boolean" ||
     typeof reminder.daily !== "boolean" ||
+    !["none", "daily", "weekly", "monthly"].includes(repeatFrequency(reminder)) ||
+    (reminder.repeat !== undefined && !["none", "daily", "weekly", "monthly"].includes(reminder.repeat)) ||
+    (reminder.repeat !== undefined && reminder.daily !== (reminder.repeat === "daily")) ||
     typeof reminder.time !== "string" ||
     !/^([01]\d|2[0-3]):[0-5]\d$/.test(reminder.time) ||
     typeof reminder.timeZone !== "string" ||
@@ -30,7 +50,7 @@ export function validateReminder(reminder, due = "") {
     throw Error("reminder");
   }
   if (reminder.onDue && !validDate(due)) throw Error("reminderDue");
-  if (reminder.daily && !validDate(reminder.start))
+  if (repeatFrequency(reminder) !== "none" && !validDate(reminder.start))
     throw Error("reminderStart");
 }
 
@@ -58,20 +78,21 @@ export function zonedClock(now, timeZone) {
 // not send a backlog of one-off reminders for earlier days.
 export function reminderOccurrence(task, now = new Date()) {
   const r = task.reminder;
-  if (task.done || !r || (!r.daily && !r.onDue)) return null;
+  if (task.done || !r || (repeatFrequency(r) === "none" && !r.onDue)) return null;
   validateReminder(r, task.due);
   const clock = zonedClock(now, r.timeZone);
   if (clock.time < r.time) return null;
   const onDue = r.onDue && clock.date === task.due;
-  const daily = r.daily && clock.date >= r.start;
-  if (!onDue && !daily) return null;
+  const frequency = repeatFrequency(r);
+  const repeating = repeatOnDate(frequency, r.start, clock.date);
+  if (!onDue && !repeating) return null;
   // On a day where both conditions match, there is only one notification.
-  return { key: clock.date, date: clock.date, kind: onDue ? "due" : "daily" };
+  return { key: clock.date, date: clock.date, kind: onDue ? "due" : frequency };
 }
 
 export function reminderTasks(tasks) {
   return tasks
-    .filter((t) => !t.done && (t.reminder?.onDue || t.reminder?.daily))
+    .filter((t) => !t.done && (t.reminder?.onDue || repeatFrequency(t.reminder) !== "none"))
     .map((t) => ({
       id: t.id,
       title: t.title,

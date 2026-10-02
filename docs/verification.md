@@ -16,3 +16,12 @@
 - No runtime package dependencies. That is a small dependency surface, not a claim that the application is vulnerability-free.
 
 The reproducible model and browser tests are in `tests/`. Browser artifacts belong in ignored local QA folders, not the public repository.
+
+## Progress and reminder frequency — 2026-10-02
+
+- Added four progress stages in English and Traditional Chinese, visible on task cards, editable in task details, and shown in dependency paths. `done` remains the legacy compatibility flag. Completion keeps prerequisite/reopen guards and cancels reminders only after successful sync.
+- Added No repeat / Daily / Weekly / Monthly independently from due-date reminders. Weekly anchors to the start weekday; monthly clamps short months without losing the original anchor. Calendar eligibility uses the saved local time zone.
+- Fresh JavaScript checks and all 52 Node tests passed, including calendar boundaries, leap years, DST, weekly/monthly payload validation, completion, and atomic progress cloud merges.
+- The Supabase migration plus rollback-only database fixture passed through the signed-in SQL Editor: calendar recurrence, cloud projection, claimed jobs, legacy field preservation, local-date deduplication, completion cancellation, and private helper access. The test transaction rolled back; no QA tasks or pushes were committed.
+- Before migration, the live account had 8 tasks, 1 linked enabled phone, and 7 reminder records. This release preserves user task lists, reminder dates/times, existing subscriptions and last-sent dates.
+- Release status at this checkpoint: local source complete; production migration, Edge Function update, frontend publishing and final mobile UI/device acceptance are pending. Do not treat the database fixture or provider acceptance as physical lock-screen proof.

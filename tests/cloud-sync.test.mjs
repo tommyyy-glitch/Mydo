@@ -95,3 +95,12 @@ test("account changes and unreadable local tasks cannot overwrite cloud data", a
   s.auth.session.user.id="another"; await s.cloud.sync(); assert.equal(s.cloud.message,"account");assert.equal(s.calls,calls);
   s.auth.session.user.id="owner";s.tasks=null; await s.cloud.sync();assert.equal(s.remote.length,1);
 });
+test("progress merges atomically and conflicts with simultaneous completion",()=>{
+  const base=[task('a',{status:'preparing'})];
+  const local=[task('a',{status:'ongoing'})];
+  const remote=[task('a',{status:'preparing',notes:'Edited elsewhere'})];
+  const merged=mergeTasks(base,local,remote)[0];assert.equal(merged.status,'ongoing');assert.equal(merged.done,false);assert.equal(merged.notes,'Edited elsewhere');
+  assert.throws(()=>mergeTasks(base,local,[task('a',{status:'complete',done:true})]),/conflict/);
+  const legacyComplete=mergeTasks(base,base,[task('a',{done:true})])[0];assert.equal(legacyComplete.status,'complete');assert.equal(legacyComplete.done,true);
+  const reopened=mergeTasks([task('a',{status:'complete',done:true})],[task('a',{status:'complete',done:false})],[task('a',{status:'complete',done:true})])[0];assert.equal(reopened.status,'preparing');
+});

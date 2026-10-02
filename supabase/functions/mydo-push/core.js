@@ -36,6 +36,7 @@ export function validateTasks(tasks) {
   const ids = new Set();
   for (const t of tasks) {
     const r = t?.reminder;
+    const frequency = r?.repeat ?? (r?.daily ? "daily" : "none");
     const date = (d) =>
       typeof d === "string" &&
       /^\d{4}-\d{2}-\d{2}$/.test(d) &&
@@ -56,14 +57,17 @@ export function validateTasks(tasks) {
       !r ||
       typeof r.onDue !== "boolean" ||
       typeof r.daily !== "boolean" ||
-      (!r.onDue && !r.daily) ||
+      !["none", "daily", "weekly", "monthly"].includes(frequency) ||
+      (r.repeat !== undefined && !["none", "daily", "weekly", "monthly"].includes(r.repeat)) ||
+      (r.repeat !== undefined && r.daily !== (frequency === "daily")) ||
+      (!r.onDue && frequency === "none") ||
       !/^([01]\d|2[0-3]):[0-5]\d$/.test(r.time) ||
       typeof r.timeZone !== "string" ||
       r.timeZone.length > 80 ||
       typeof r.start !== "string" ||
       (r.start && !date(r.start)) ||
       (r.onDue && !date(t.due)) ||
-      (r.daily && !date(r.start))
+      (frequency !== "none" && !date(r.start))
     )
       throw Error("tasks");
     try {
@@ -81,6 +85,7 @@ export function validateTasks(tasks) {
     reminder: {
       onDue: t.reminder.onDue,
       daily: t.reminder.daily,
+      ...(t.reminder.repeat !== undefined ? { repeat: t.reminder.repeat } : {}),
       time: t.reminder.time,
       timeZone: t.reminder.timeZone,
       start: t.reminder.start,
@@ -100,10 +105,10 @@ export async function deliverDue(db, send) {
         title: zh
           ? job.is_due
             ? "Mydo · 今日到期"
-            : "Mydo · 每日提醒"
+            : ({ weekly: "Mydo · 每週提醒", monthly: "Mydo · 每月提醒" }[job.frequency] || "Mydo · 每日提醒")
           : job.is_due
             ? "Mydo · Due today"
-            : "Mydo · Daily reminder",
+            : ({ weekly: "Mydo · Weekly reminder", monthly: "Mydo · Monthly reminder" }[job.frequency] || "Mydo · Daily reminder"),
         body: job.title,
         taskId: job.task_id,
         tag: `mydo-${job.device_id}-${job.task_id}`,

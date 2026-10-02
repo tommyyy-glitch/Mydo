@@ -111,3 +111,24 @@ test("sample tasks are valid and provide all four matrix categories", () => {
     5,
   );
 });
+test("progress retains reminders and only complete unlocks dependencies", async () => {
+  const {setTaskStatus,taskStatus}=await import('../model.js');
+  let list=[task('a',{reminder:{onDue:false,daily:true,time:'09:00',timeZone:'Asia/Hong_Kong',start:'2026-10-02'}}),task('b',{deps:['a']})];
+  assert.equal(taskStatus(list[0]),'preparing');
+  for(const status of ['preparing','ongoing','almost']){
+    list=setTaskStatus(list,'a',status);
+    assert.equal(list[0].done,false);assert.equal(blockers(list[1],list).length,1);
+    assert.equal(list[0].reminder.daily,true);
+  }
+  assert.throws(()=>setTaskStatus(list,'b','complete'),/blocked/);
+  list=setTaskStatus(list,'a','complete');assert.equal(blockers(list[1],list).length,0);
+  list=setTaskStatus(list,'b','complete');assert.throws(()=>setTaskStatus(list,'a','ongoing'),/reopen/);
+  assert.throws(()=>validate([task('x',{status:'invalid'})]),/format/);
+});
+test("legacy completion and reopening project to a valid new status",async()=>{
+  const {taskStatus}=await import('../model.js');
+  assert.equal(taskStatus(task('x',{done:true,status:'ongoing'})),'complete');
+  assert.equal(taskStatus(task('x',{status:'complete'})),'preparing');
+  const tasks=[task('x',{status:'almost'})];
+  assert.equal(toggleTask(toggleTask(tasks,'x'),'x')[0].status,'preparing');
+});

@@ -61,9 +61,11 @@ GitHub Pages can serve the repository root directly from `main`. All assets and 
 1. Open Mydo from its iPhone Home Screen icon.
 2. Open **Phone reminders / 手機通知**, sign in with your existing **Myfin cloud account** (not your Supabase dashboard/GitHub login), and tap **Enable this phone** → Allow.
 3. Send a test notification and verify it appears on your iPhone.
-4. In a task, select **Remind me on the due date** and/or **Every day until completed**. Choose the local time, timezone and daily start date, then save.
+4. In a task, select **Remind me on the due date** and/or **Repeat until completed** → Daily, Weekly or Monthly. Choose the local time, timezone and repeating start date, then save.
 
-Due-day reminders are sent on that calendar date after the selected time. Daily reminders start on the chosen date and continue after a deadline until completion. Both modes combine on the due date. The scheduler checks every minute; this is best-effort delivery, not an exact alarm. Focus mode, network availability, permissions, service outages and OS behavior can delay or suppress notifications. Past days are not replayed.
+Due-day reminders are sent on that calendar date after the selected time. Repeating reminders start on the chosen date and continue after a deadline until completion. Weekly uses the start weekday; monthly uses the original day, or the last day of a shorter month. Both modes combine on the due date. The scheduler checks every minute; this is best-effort delivery, not an exact alarm. Focus mode, network availability, permissions, service outages and OS behavior can delay or suppress notifications. Past days are not replayed.
+
+Task progress is **Preparing / 準備中 → Ongoing / 進行中 → Almost complete / 接近完成 → Complete / 已完成**. Choose it in task details; the current stage appears on cards and task paths. The first three stages keep reminders active. Only Complete stops reminders after sync and unlocks dependent tasks. Progress stays independent from Must/Want, urgency and deadlines. Old open tasks display Preparing, and old completed tasks display Complete.
 
 Completion, deletion and disabled task reminders are removed from the server after successful sync. **Offline changes cannot cancel already scheduled server reminders until reconnecting and syncing.** Pending sync is shown in the app. Use **Stop this phone's reminders** to disable the device remotely. Task storage remains local unless you enable cloud task sync. The notification-only copy is not a full backup.
 

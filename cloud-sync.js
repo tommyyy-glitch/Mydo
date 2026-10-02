@@ -1,4 +1,4 @@
-import { validate } from "./model.js";
+import { validate, taskStatus } from "./model.js";
 
 const canonical = (value) => Array.isArray(value) ? value.map(canonical)
   : value && typeof value === "object"
@@ -27,9 +27,15 @@ export function mergeTasks(base, local, remote, preference = "") {
     else {
       merged = {};
       for (const field of new Set([...Object.keys(before), ...Object.keys(here), ...Object.keys(there)])) {
+        if (field === "status" || field === "done") continue;
         const value = choose(before[field], here[field], there[field]);
         if (value !== undefined) merged[field] = value;
       }
+      // Progress is one value: concurrent completion/progress edits must conflict,
+      // never combine into a status that one of the devices did not choose.
+      const status = choose(taskStatus(before), taskStatus(here), taskStatus(there));
+      merged.done = status === "complete";
+      if ([before, here, there].some(t => t.status !== undefined)) merged.status = status;
     }
     if (merged) result.push(copy(merged));
   }

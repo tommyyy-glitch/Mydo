@@ -159,3 +159,16 @@ test("body limit and invalid JSON fail safely", async () => {
     400,
   );
 });
+test("push service accepts and preserves weekly/monthly repeating reminders",()=>{
+  for(const repeat of ['weekly','monthly']){
+    const t={...task,due:'',reminder:{...task.reminder,onDue:false,daily:false,repeat}};
+    assert.equal(validateTasks([t])[0].reminder.repeat,repeat);
+    assert.throws(()=>validateTasks([{...t,reminder:{...t.reminder,start:''}}]),/tasks/);
+  }
+});
+test("weekly and monthly notification titles match the selected language",async()=>{
+  for(const [language,frequency,title] of [['en','weekly','Weekly reminder'],['zh','monthly','每月提醒']]){
+    let payload;await deliverDue({claim:async()=>[{task_id:'a',device_id:device,title:'Task',subscription:sub,language,frequency}],current:async()=>true,markSent:async()=>{}},async(s,p)=>{payload=p;return {ok:true}});
+    assert.ok(payload.title.includes(title));
+  }
+});

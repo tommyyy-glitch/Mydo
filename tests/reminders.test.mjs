@@ -99,3 +99,31 @@ test("sync payload excludes notes and completed tasks", () => {
   assert.equal("notes" in result[0], false);
   assert.equal("project" in result[0], false);
 });
+test("weekly repeats from its anchor weekday across a year boundary", () => {
+  const task = {...t, due:"", reminder:{...r,onDue:false,repeat:"weekly",start:"2026-12-28"}};
+  for (const [date, matches] of [["2026-12-21",false],["2026-12-28",true],["2027-01-03",false],["2027-01-04",true]])
+    assert.equal(!!reminderOccurrence(task,new Date(date+"T01:00Z")),matches,date);
+});
+test("monthly clamps short months and returns to the original anchor including leap years", () => {
+  const task = {...t, due:"", reminder:{...r,onDue:false,repeat:"monthly",start:"2026-01-31"}};
+  for (const [date,matches] of [["2026-02-27",false],["2026-02-28",true],["2026-03-28",false],["2026-03-31",true],["2026-04-30",true],["2028-02-28",false],["2028-02-29",true]])
+    assert.equal(!!reminderOccurrence(task,new Date(date+"T01:00Z")),matches,date);
+});
+test("weekly wall-clock time survives DST and combines with due-date reminders", () => {
+  const task={...t,due:"2026-03-08",reminder:{...r,repeat:"weekly",start:"2026-03-01",timeZone:"America/New_York"}};
+  assert.equal(reminderOccurrence(task,new Date("2026-03-08T12:59Z")),null);
+  assert.equal(reminderOccurrence(task,new Date("2026-03-08T13:00Z")).kind,"due");
+  assert.equal(reminderOccurrence(task,new Date("2026-03-15T13:00Z")).kind,"weekly");
+  assert.equal(reminderOccurrence({...task,done:true},new Date("2026-03-15T13:00Z")),null);
+});
+test("new frequency validation and payload preserve weekly/monthly without a deadline",()=>{
+  for(const repeat of ["weekly","monthly"]){
+    const task={...t,due:"",status:"ongoing",reminder:{...r,onDue:false,repeat}};
+    validateReminder(task.reminder,"");
+    assert.equal(reminderTasks([task])[0].reminder.repeat,repeat);
+    assert.throws(()=>validateReminder({...task.reminder,start:""}),/reminderStart/);
+  }
+  assert.throws(()=>validateReminder({...r,repeat:"yearly"},t.due),/reminder/);
+  assert.throws(()=>validateReminder({...r,repeat:null},t.due),/reminder/);
+  assert.throws(()=>validateReminder({...r,repeat:"daily"},t.due),/reminder/);
+});
