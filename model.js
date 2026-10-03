@@ -1,7 +1,8 @@
 import { validateReminder } from "./reminders.js";
+import { isRoutine, validateRoutine } from "./routines.js";
 export const TASK_STATUSES = ["preparing", "ongoing", "almost", "complete"];
 // done remains the compatibility flag for backups and devices on the old app.
-export const taskStatus = (task) => task.done ? "complete"
+export const taskStatus = (task) => isRoutine(task) ? "preparing" : task.done ? "complete"
   : task.status && task.status !== "complete" ? task.status : "preparing";
 export const today = () => {
   const d = new Date();
@@ -45,7 +46,7 @@ export function urgency(task, tasks, now = today()) {
 }
 export function rank(tasks, now = today()) {
   return tasks
-    .filter((t) => !t.done)
+    .filter((t) => !t.done && !isRoutine(t))
     .sort((a, b) => {
       const score = (t) => {
         const due = effectiveDue(t, tasks);
@@ -98,6 +99,7 @@ export function validate(tasks) {
         new Date(t.due).toISOString().slice(0, 10) !== t.due)
     )
       throw Error("date");
+    validateRoutine(t);
     validateReminder(t.reminder, t.due);
     ids.add(t.id);
   }
@@ -107,6 +109,8 @@ export function validate(tasks) {
   const visiting = new Set(),
     visited = new Set();
   const map = new Map(tasks.map((t) => [t.id, t]));
+  for (const t of tasks)
+    if (t.deps.some((id) => isRoutine(map.get(id)))) throw Error("routineDependency");
   function visit(id) {
     if (visiting.has(id)) throw Error("cycle");
     if (visited.has(id)) return;
@@ -130,12 +134,14 @@ export function saveTask(tasks, task) {
 export function toggleTask(tasks, id) {
   const task = tasks.find((t) => t.id === id);
   if (!task) throw Error("missing");
+  if (isRoutine(task)) throw Error("routine");
   return setTaskStatus(tasks, id, task.done ? "preparing" : "complete");
 }
 export function setTaskStatus(tasks, id, status) {
   if (!TASK_STATUSES.includes(status)) throw Error("status");
   const task = tasks.find((t) => t.id === id);
   if (!task) throw Error("missing");
+  if (isRoutine(task)) throw Error("routine");
   if (status === "complete" && blockers(task, tasks).length) throw Error("blocked");
   if (task.done && status !== "complete" && descendants(id, tasks).some((t) => t.done))
     throw Error("reopen");

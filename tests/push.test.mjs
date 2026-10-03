@@ -149,7 +149,7 @@ test("invalidated jobs are skipped; successful deliveries acknowledged; expired 
 });
 test("body limit and invalid JSON fail safely", async () => {
   const { handle } = setup();
-  assert.equal((await handle(req({ text: "x".repeat(100001) }))).status, 413);
+  assert.equal((await handle(req({ text: "x".repeat(1000001) }))).status, 413);
   assert.equal(
     (
       await handle(
@@ -170,5 +170,55 @@ test("weekly and monthly notification titles match the selected language",async(
   for(const [language,frequency,title] of [['en','weekly','Weekly reminder'],['zh','monthly','每月提醒']]){
     let payload;await deliverDue({claim:async()=>[{task_id:'a',device_id:device,title:'Task',subscription:sub,language,frequency}],current:async()=>true,markSent:async()=>{}},async(s,p)=>{payload=p;return {ok:true}});
     assert.ok(payload.title.includes(title));
+  }
+});
+const routineTask = {
+  ...task, kind: "routine", due: "", notes: "Private medication notes",
+  routine: { frequency: "weekly", weekdays: [1, 3, 5], start: "2026-10-03",
+    timeZone: "Asia/Hong_Kong", paused: false,
+    checks: { "2026-10-05": true, "2026-10-07": false } },
+  reminder: { ...task.reminder, onDue: false, daily: false, repeat: "weekly", start: "2026-10-03" },
+};
+test("routine push projection keeps recurrence/checks and strips private notes", () => {
+  const [saved] = validateTasks([routineTask]);
+  assert.equal(saved.kind, "routine");
+  assert.deepEqual(saved.routine, routineTask.routine);
+  assert.equal(saved.notes, undefined);
+  assert.notEqual(saved.routine.checks, routineTask.routine.checks);
+  assert.deepEqual(validateTasks([{ ...routineTask, routine: { ...routineTask.routine, paused: true } }])[0].routine.paused, true);
+});
+test("routine push validation rejects malformed schedules and inconsistent reminders", () => {
+  for (const routine of [
+    { ...routineTask.routine, weekdays: [] },
+    { ...routineTask.routine, weekdays: [1, 1] },
+    { ...routineTask.routine, weekdays: [7] },
+    { ...routineTask.routine, weekdays: [1.5] },
+    { ...routineTask.routine, frequency: "daily" },
+    { ...routineTask.routine, start: "2026-02-30" },
+    { ...routineTask.routine, paused: "false" },
+    { ...routineTask.routine, checks: { "2026-02-30": true } },
+    { ...routineTask.routine, checks: { "2026-10-05": 1 } },
+  ]) assert.throws(() => validateTasks([{ ...routineTask, routine }]), /tasks/);
+  for (const reminder of [
+    { ...routineTask.reminder, onDue: true },
+    { ...routineTask.reminder, repeat: "monthly" },
+    { ...routineTask.reminder, start: "2026-10-04" },
+    { ...routineTask.reminder, timeZone: "UTC" },
+  ]) assert.throws(() => validateTasks([{ ...routineTask, reminder }]), /tasks/);
+  assert.throws(() => validateTasks([{ ...routineTask, kind: "task" }]), /tasks/);
+  assert.throws(() => validateTasks([{ ...routineTask, done: true }]), /tasks/);
+});
+test("routine jobs use bilingual routine titles and route markers; invalidated checked jobs skip delivery", async () => {
+  for (const language of ["en", "zh"]) {
+    let payload;
+    const jobs = ["checked", "open"].map((task_id) => ({ task_id, device_id: device,
+      title: "Routine", subscription: sub, language, is_routine: true, frequency: "weekly" }));
+    const result = await deliverDue({ claim: async () => jobs,
+      current: async (job) => job.task_id !== "checked", markSent: async () => {} },
+    async (s, p) => { payload = p; return { ok: true }; });
+    assert.equal(payload.title, language === "zh" ? "Mydo · 日常提醒" : "Mydo · Routine reminder");
+    assert.equal(payload.kind, "routine");
+    assert.equal(payload.taskId, "open");
+    assert.deepEqual(result, { sent: 1, failed: 0 });
   }
 });

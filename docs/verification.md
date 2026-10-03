@@ -30,3 +30,11 @@ The reproducible model and browser tests are in `tests/`. Browser artifacts belo
 - The minute reminder cron remained active, with a successful recent run and HTTP 200 / zero failed deliveries in the latest stored response after the Edge Function update.
 - After the user unlocked iPhone Mirroring, the installed Mydo app was cold relaunched. The physical iPhone displayed all four progress stages; tapping Ongoing selected it. The frequency menu displayed No repeat / Daily / Weekly / Monthly, and Monthly could be selected. This used an empty unsaved draft, which was closed without creating a test mission. The app was left on its task list, showing 8 total tasks, 7 open tasks, cloud sync complete and phone reminders synced.
 - New weekly/monthly lock-screen delivery has not been observed. Do not treat the database fixture, readiness endpoint or phone UI acceptance as physical lock-screen delivery proof.
+
+## Continuous routines — 2026-10-03
+
+- Fresh syntax checks and all 80 Node tests passed. Routine coverage includes per-date completion/undo, next-day reopening, selected weekdays, original monthly anchors, DST/time zones, pause, validated backup import, exclusion from ordinary task ranking/prerequisites, per-date cloud merges and concurrent edits, push payloads, and notification routing.
+- Browser UI at 393 × 852 saved a daily routine, recorded today, reloaded to verify persistence, selected three weekly days, rejected an empty weekly selection, paused/resumed without losing the record, undid today's check, and saved a monthly 31st anchor. The normal task editor excluded the routine from prerequisites. English/Traditional Chinese and the separate Task history entry were checked; the final preview had no warning/error logs.
+- One disposable routine was created only in the local preview, with notifications off, then deleted through the UI. No real routines or medication instructions were invented, and no production QA reminders were created.
+- Read-only production checks found 8 saved items, 6 reminder rows and 1 enabled device. RLS was enabled on all three existing Mydo tables. The new database migration, rollback-only fixture, and Edge Function change are prepared; their execution/deployment and installed-phone acceptance are pending.
+- Physical lock-screen delivery for routine notifications has not been observed.

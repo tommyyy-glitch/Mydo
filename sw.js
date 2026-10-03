@@ -1,4 +1,4 @@
-const CACHE = "mydo-shell-" + self.registration.scope + "-v8";
+const CACHE = "mydo-shell-" + self.registration.scope + "-v11";
 const FILES = [
   "./",
   "index.html",
@@ -6,6 +6,8 @@ const FILES = [
   "app.js",
   "model.js",
   "cloud-sync.js",
+  "routines.js",
+  "routine-ui.js",
   "reminders.js",
   "push-client.js",
   "icon.svg",
@@ -66,6 +68,7 @@ self.addEventListener("push", (event) => {
       : "You have a task reminder. / 你有一項任務提醒。";
   const taskId =
     typeof data.taskId === "string" ? data.taskId.slice(0, 100) : "";
+  const kind = data.kind === "routine" ? "routine" : "task";
   event.waitUntil(
     self.registration.showNotification(title, {
       body,
@@ -73,15 +76,17 @@ self.addEventListener("push", (event) => {
       badge: new URL("icon-192.png", self.registration.scope).href,
       tag:
         typeof data.tag === "string" ? data.tag.slice(0, 250) : "mydo-reminder",
-      data: { taskId },
+      data: { taskId, kind },
     }),
   );
 });
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const taskId = event.notification.data?.taskId || "";
+  const taskId = typeof event.notification.data?.taskId === "string"
+    ? event.notification.data.taskId.slice(0, 100) : "";
+  const kind = event.notification.data?.kind === "routine" ? "routine" : "task";
   const target = new URL("./", self.registration.scope);
-  target.hash = "all";
+  target.hash = kind === "routine" ? "routines" : "tasks";
   event.waitUntil(
     (async () => {
       const windows = await self.clients.matchAll({
@@ -93,7 +98,7 @@ self.addEventListener("notificationclick", (event) => {
       );
       if (existing) {
         await existing.focus();
-        existing.postMessage({ type: "mydo-open-task", taskId });
+        existing.postMessage({ type: "mydo-open-task", taskId, kind });
       } else {
         target.searchParams.set("task", taskId);
         await self.clients.openWindow(target.href);

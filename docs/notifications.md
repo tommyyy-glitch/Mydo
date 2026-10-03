@@ -29,7 +29,7 @@ Claims are leased for five minutes and skipped by concurrent dispatches. Unchang
 
 ## Operational limits
 
-The app is local-first. Without cloud task sync, only enabled reminder tasks are copied to the server. With cloud task sync enabled, the full list is shared in the signed-in account; see cloud-sync.md. Offline completion cannot retract reminders until successful sync. A notification already in flight may still arrive. A due-day reminder is not replayed the following day; daily reminders continue until completion. Supabase project availability/quotas, browser subscription lifetime, network access and iOS Focus/notification settings affect delivery. The feature is a reminder, not a safety-critical alarm.
+The app is local-first. Without cloud task sync, only enabled reminder items are copied to the server, including the schedule, pause flag and per-date checks needed for routines. With cloud task sync enabled, tasks and routines share the full list in the signed-in account; see cloud-sync.md. Offline completion, routine checks, undo, pause and schedule edits affect server reminders only after successful sync. A notification already in flight may still arrive. A due-day reminder is not replayed the following day; ordinary repeating reminders continue until task completion. Routine reminders continue on future scheduled dates because a routine never completes permanently. Supabase project availability/quotas, browser subscription lifetime, network access and iOS Focus/notification settings affect delivery. The feature is a reminder, not a safety-critical alarm.
 
 ## Password recovery
 
@@ -44,3 +44,13 @@ Each task can independently enable a due-date notification and select No repeat 
 Preparing, Ongoing and Almost complete keep their reminders. Complete cancels them after a successful sync and unlocks dependent tasks. Status does not change Must/Want, urgency or real deadlines. Existing tasks without a status display Preparing (or Complete when `done` is true). Existing daily schedules retain their original start/time/zone.
 
 Deploy `202610020001_mydo_progress_frequency.sql`, then update `mydo-push/core.js` with the existing Edge Function, then publish the frontend. The migration preserves task lists, subscriptions, last-sent dates and CAS revisions. `tests/progress-frequency-db.sql` is a rollback-only database test fixture; never commit its temporary QA tasks.
+
+## Routine reminders (2026-10-03)
+
+**Routines / 日常** replaces All tasks as the fourth main page. Ordinary open and completed tasks remain available through the secondary **Task history / 待辦記錄** button (`#tasks`). Both types use the same optional cloud account and list, with existing task IDs and records preserved.
+
+A routine has a start date, saved time zone and daily, selected-weekday or monthly schedule. Weekly can select multiple days; the ordinary task's weekly reminder still uses its start weekday. Monthly routine dates retain the original anchor and clamp to the last day of shorter months. The notification checkbox controls delivery on scheduled dates, and its time is local to the saved time zone. It does not create a real deadline or a permanent task-completion state.
+
+Checking a routine records that scheduled local date and suppresses its remaining notification for the day after sync. The next scheduled occurrence remains open. Undo stores an explicit false check so a stale cloud copy cannot silently restore completion. Schedule edits retain recorded dates. Pause stops delivery but keeps the schedule, history and reminder row, preserving same-day delivery deduplication when resumed. Notification-disabled or deleted routines are removed from the reminder projection after sync. Paused enabled routines and checked-today routines still occupy a reminder slot.
+
+For this implementation, apply `supabase/migrations/202610030001_mydo_routines.sql` after the existing cloud/progress migrations, then update the existing `mydo-push/core.js` and publish the frontend. The migration adds isolated Mydo routine validation/projection/eligibility and protects stored routine records from older clients' permanent-complete toggles. It does not replace the cloud list or reset subscriptions. `tests/routines-db.sql` is a rollback-only database fixture; do not retain its QA items or send them as real notifications. Current deployment and physical-device evidence belongs in [verification](verification.md); source code and local tests alone do not establish lock-screen receipt.

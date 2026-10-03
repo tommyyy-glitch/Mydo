@@ -977,7 +977,8 @@ dialog::backdrop {
   background: #050b07ba;
   backdrop-filter: blur(5px);
 }
-#task-form {
+#task-form,
+#routine-form {
   padding: 29px;
   display: flex;
   flex-direction: column;
@@ -1016,7 +1017,8 @@ form > label,
   color: #c3cec1;
 }
 form input:not([type="radio"]):not([type="checkbox"]),
-form textarea {
+form textarea,
+#routine-form select {
   width: 100%;
   background: #121914;
   border: 1px solid #425045;
@@ -1635,7 +1637,8 @@ form small,
   footer span {
     display: none;
   }
-  #task-form {
+  #task-form,
+  #routine-form {
     padding: 22px 18px;
     gap: 20px;
   }
@@ -1650,7 +1653,8 @@ form small,
     gap: 20px;
   }
   form input:not([type="radio"]):not([type="checkbox"]),
-  form textarea {
+  form textarea,
+  #routine-form select {
     font-size: 16px;
   }
   .segmented span {
@@ -1948,3 +1952,140 @@ form small,
 .badge.progress-ongoing { color: #c2e3c7; background: #26372c; }
 .badge.progress-almost { color: #e4c78c; background: #3a3324; }
 .badge.progress-preparing, .badge.progress-complete { color: #a2aaa4; }
+
+/* Routine checks belong to today; the card stays available for the next day. */
+.routine-card .task-check {
+  width: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  margin: -8px 0 -7px -9px;
+}
+.routine-card .task-check:after { inset: 13px; }
+.routine-card .task-check:focus-visible {
+  outline: 2px solid var(--mint);
+  outline-offset: 1px;
+  border-radius: 7px;
+}
+.routine-card .task-body { min-height: 44px; }
+.routine-checked { background: #1d2720; }
+.routine-checked .task-title { color: var(--mint); }
+.routine-paused .task-title { color: var(--muted); }
+.routine-schedule {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px 8px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.routine-schedule svg { width: 13px; height: 13px; }
+.routine-history {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+.routine-history > span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 7px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.4;
+}
+.routine-history > span.checked {
+  background: #26372c;
+  border-color: #526c57;
+  color: var(--mint);
+}
+.routine-history > small,
+.routine-history-note {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.weekday-options {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(44px, 1fr));
+  gap: 7px;
+  margin-bottom: 12px;
+}
+.weekday-options label {
+  position: relative;
+  min-width: 44px;
+  min-height: 44px;
+  margin: 0;
+  cursor: pointer;
+}
+.weekday-options input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 1;
+}
+.weekday-options span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 9px 4px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  text-align: center;
+  font-size: 12px;
+}
+.weekday-options input:checked + span {
+  background: #26372c;
+  border-color: #9fc5a5;
+  color: #c2e3c7;
+}
+.weekday-options input:focus-visible + span {
+  outline: 2px solid var(--mint);
+  outline-offset: 2px;
+}
+#routine-form > .reminder-toggle {
+  flex-direction: row;
+  align-items: center;
+  min-height: 44px;
+}
+.heading-actions {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.heading-actions .primary { min-height: 44px; margin-bottom: 0; }
+.history-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 44px;
+  padding: 10px 13px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.history-link:hover { color: var(--mint); border-color: #526c57; }
+.history-link:focus-visible { outline: 2px solid var(--mint); outline-offset: 2px; }
+@media (max-width: 580px) {
+  .weekday-options { grid-template-columns: repeat(4, minmax(44px, 1fr)); }
+  .page-heading:has(.heading-actions) { flex-wrap: wrap; align-items: flex-start; }
+  .heading-actions { width: 100%; justify-content: space-between; gap: 8px; }
+  .heading-actions .primary { padding: 10px 13px; }
+  .routine-card .task-check { margin-left: -7px; }
+}

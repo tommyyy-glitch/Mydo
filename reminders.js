@@ -1,5 +1,6 @@
 // Shared by the browser and the scheduler. A reminder's zone is explicit so
 // travelling or a server running in UTC cannot silently move the chosen time.
+import { isRoutine, validateRoutine, routineScheduled, routineDone } from "./routines.js";
 export const repeatFrequency = (r) => r?.repeat ?? (r?.daily ? "daily" : "none");
 
 // Calendar arithmetic keeps the original monthly anchor, even after February.
@@ -80,11 +81,17 @@ export function reminderOccurrence(task, now = new Date()) {
   const r = task.reminder;
   if (task.done || !r || (repeatFrequency(r) === "none" && !r.onDue)) return null;
   validateReminder(r, task.due);
+  if (isRoutine(task)) {
+    validateRoutine(task);
+    if (task.routine.paused) return null;
+  }
   const clock = zonedClock(now, r.timeZone);
   if (clock.time < r.time) return null;
   const onDue = r.onDue && clock.date === task.due;
   const frequency = repeatFrequency(r);
-  const repeating = repeatOnDate(frequency, r.start, clock.date);
+  const repeating = isRoutine(task)
+    ? routineScheduled(task, clock.date) && !routineDone(task, clock.date)
+    : repeatOnDate(frequency, r.start, clock.date);
   if (!onDue && !repeating) return null;
   // On a day where both conditions match, there is only one notification.
   return { key: clock.date, date: clock.date, kind: onDue ? "due" : frequency };
@@ -92,6 +99,8 @@ export function reminderOccurrence(task, now = new Date()) {
 
 export function reminderTasks(tasks) {
   return tasks
+    // Paused and checked-today routines stay projected so their existing
+    // scheduler deduplication state survives pause/resume and undo.
     .filter((t) => !t.done && (t.reminder?.onDue || repeatFrequency(t.reminder) !== "none"))
     .map((t) => ({
       id: t.id,
@@ -99,5 +108,10 @@ export function reminderTasks(tasks) {
       due: t.due,
       done: false,
       reminder: { ...t.reminder },
+      ...(isRoutine(t) ? { kind: "routine", routine: {
+        frequency: t.routine.frequency, weekdays: [...t.routine.weekdays],
+        start: t.routine.start, timeZone: t.routine.timeZone,
+        paused: t.routine.paused, checks: { ...t.routine.checks },
+      } } : {}),
     }));
 }

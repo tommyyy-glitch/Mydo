@@ -4,6 +4,14 @@ import { mergeTasks, CloudTasks } from "../cloud-sync.js";
 const task = (id, fields = {}) => ({ id, title: id, project: "", notes: "", intent: "must", urgent: false,
   done: false, due: "", deps: [], created: "2026-10-01T00:00:00Z", ...fields });
 const clone = (x) => JSON.parse(JSON.stringify(x));
+const routine = (id, settings = {}, fields = {}) => task(id, {
+  kind: "routine", status: "preparing", routine: {
+    frequency: "daily", weekdays: [], start: "2026-10-01", timeZone: "Asia/Hong_Kong",
+    paused: false, checks: {}, ...settings,
+  }, ...fields,
+});
+const routineReminder = (settings = {}) => ({ onDue: false, daily: true, repeat: "daily",
+  start: "2026-10-01", timeZone: "Asia/Hong_Kong", time: "09:00", ...settings });
 test("first sync preserves both phone tasks and tasks added from chat", () => {
   assert.deepEqual(mergeTasks([], [task("phone")], [task("chat")]).map(t => t.id), ["chat", "phone"]);
 });
@@ -103,4 +111,149 @@ test("progress merges atomically and conflicts with simultaneous completion",()=
   assert.throws(()=>mergeTasks(base,local,[task('a',{status:'complete',done:true})]),/conflict/);
   const legacyComplete=mergeTasks(base,base,[task('a',{done:true})])[0];assert.equal(legacyComplete.status,'complete');assert.equal(legacyComplete.done,true);
   const reopened=mergeTasks([task('a',{status:'complete',done:true})],[task('a',{status:'complete',done:false})],[task('a',{status:'complete',done:true})])[0];assert.equal(reopened.status,'preparing');
+});
+test("routine occurrences and ordinary task progress coexist in one cloud list", () => {
+  const base = [routine("daily"), task("todo", { status: "ongoing" })];
+  const local = [routine("daily", { checks: { "2026-10-03": true } }), task("todo", { status: "ongoing" })];
+  const remote = [routine("daily"), task("todo", { status: "complete", done: true })];
+  const merged = mergeTasks(base, local, remote);
+  assert.equal(merged[0].routine.checks["2026-10-03"], true);
+  assert.equal(merged[0].done, false);
+  assert.equal(merged[0].status, "preparing");
+  assert.equal(merged[1].status, "complete");
+});
+test("routine checks merge by date and preserve an explicit undo against stale cloud data", () => {
+  const originalChecks = { "2026-10-01": true, "2026-10-02": true };
+  const base = [routine("daily", { checks: originalChecks })];
+  const local = [routine("daily", { checks: { ...originalChecks, "2026-10-02": false, "2026-10-03": true } })];
+  const remote = [routine("daily", { checks: { ...originalChecks, "2026-10-04": true } })];
+  assert.deepEqual(mergeTasks(base, local, remote)[0].routine.checks, {
+    "2026-10-01": true, "2026-10-02": false, "2026-10-03": true, "2026-10-04": true,
+  });
+  // Even when it began absent, a stored false records an intentional undo.
+  assert.equal(mergeTasks([routine("daily")], [routine("daily", { checks: { "2026-10-03": false } })],
+    [routine("daily")])[0].routine.checks["2026-10-03"], false);
+});
+test("same-date routine checks agree, while opposing check and undo edits require resolution", () => {
+  const base = [routine("daily")];
+  const checked = [routine("daily", { checks: { "2026-10-03": true } })];
+  const undone = [routine("daily", { checks: { "2026-10-03": false } })];
+  assert.deepEqual(mergeTasks(base, checked, checked), checked);
+  assert.throws(() => mergeTasks(base, checked, undone), /conflict/);
+  assert.equal(mergeTasks(base, checked, undone, "remote")[0].routine.checks["2026-10-03"], false);
+});
+test("routine schedule, pause, title and checks can change independently", () => {
+  const base = [routine("habit")];
+  const local = [routine("habit", { frequency: "weekly", weekdays: [1, 3], paused: true }, { title: "Gym" })];
+  const remote = [routine("habit", { checks: { "2026-10-03": true } }, { notes: "Bring a towel" })];
+  const merged = mergeTasks(base, local, remote)[0];
+  assert.equal(merged.title, "Gym");
+  assert.equal(merged.notes, "Bring a towel");
+  assert.equal(merged.routine.frequency, "weekly");
+  assert.deepEqual(merged.routine.weekdays, [1, 3]);
+  assert.equal(merged.routine.paused, true);
+  assert.equal(merged.routine.checks["2026-10-03"], true);
+});
+test("conflicting routine settings and different simultaneous additions never silently win", () => {
+  const base = [routine("habit")];
+  assert.throws(() => mergeTasks(base, [routine("habit", { timeZone: "UTC" })],
+    [routine("habit", { timeZone: "America/New_York" })]), /conflict/);
+  assert.throws(() => mergeTasks([], [routine("habit", { checks: { "2026-10-03": true } })],
+    [routine("habit", { checks: { "2026-10-04": true } })]), /conflict/);
+  assert.deepEqual(mergeTasks([], base, clone(base)), base);
+});
+test("routine reminder time and schedule edits combine through the schedule projection", () => {
+  const base = [routine("habit", {}, { reminder: routineReminder() })];
+  const local = [routine("habit", { start: "2026-10-02", timeZone: "UTC" }, {
+    reminder: routineReminder({ start: "2026-10-02", timeZone: "UTC" }),
+  })];
+  const remote = [routine("habit", {}, { reminder: routineReminder({ time: "10:30" }) })];
+  const merged = mergeTasks(base, local, remote)[0];
+  assert.deepEqual(merged.reminder, routineReminder({ start: "2026-10-02", timeZone: "UTC", time: "10:30" }));
+  assert.equal(merged.routine.start, merged.reminder.start);
+  assert.equal(merged.routine.timeZone, merged.reminder.timeZone);
+});
+test("turning routine reminders off combines with independent frequency and time edits", () => {
+  const base = [routine("habit", {}, { reminder: routineReminder() })];
+  const local = [routine("habit", { frequency: "weekly", weekdays: [1, 3] }, {
+    reminder: routineReminder({ repeat: "weekly", daily: false, time: "08:00" }),
+  })];
+  const remote = [routine("habit", {}, { reminder: null })];
+  const merged = mergeTasks(base, local, remote)[0];
+  assert.deepEqual(merged.routine.weekdays, [1, 3]);
+  assert.deepEqual(merged.reminder, routineReminder({ repeat: "none", daily: false, time: "08:00" }));
+  assert.throws(() => mergeTasks(base,
+    [routine("habit", {}, { reminder: routineReminder({ time: "08:00" }) })],
+    [routine("habit", {}, { reminder: routineReminder({ time: "10:00" }) })]), /conflict/);
+});
+test("routine reminder activation combines with a schedule edit while absent stays off", () => {
+  const base = [routine("habit")];
+  const local = [routine("habit", {}, { reminder: routineReminder() })];
+  const remote = [routine("habit", { frequency: "monthly", start: "2026-10-31" })];
+  const merged = mergeTasks(base, local, remote)[0];
+  assert.deepEqual(merged.reminder, routineReminder({ repeat: "monthly", daily: false, start: "2026-10-31" }));
+  assert.equal(mergeTasks(base, base, remote)[0].reminder, undefined);
+});
+test("a resolved routine schedule conflict selects a valid frequency and weekday pair", () => {
+  const weekly = { frequency: "weekly", weekdays: [1] };
+  const base = [routine("habit", weekly)];
+  const local = [routine("habit", { checks: { "2026-10-03": true }, paused: true })];
+  const remote = [routine("habit", { frequency: "weekly", weekdays: [3] }, { notes: "Keep this note" })];
+  assert.throws(() => mergeTasks(base, local, remote), /conflict/);
+  const merged = mergeTasks(base, local, remote, "remote")[0];
+  assert.equal(merged.routine.frequency, "weekly");
+  assert.deepEqual(merged.routine.weekdays, [3]);
+  assert.equal(merged.routine.checks["2026-10-03"], true);
+  assert.equal(merged.routine.paused, true);
+  assert.equal(merged.notes, "Keep this note");
+});
+test("routine merging rejects malformed input even when the other copy could hide it", () => {
+  const valid = [routine("habit")];
+  const malformed = [routine("habit", { checks: { "2026-10-03": "true" } })];
+  assert.throws(() => mergeTasks(valid, malformed, valid, "remote"), /routine/);
+  assert.throws(() => mergeTasks(valid, [{ ...valid[0], routine: undefined }], valid, "remote"), /routine/);
+  assert.throws(() => mergeTasks(valid, [routine("habit", {}, { done: true, status: "complete" })], valid), /routine/);
+  assert.throws(() => mergeTasks([], [task("todo", { routine: valid[0].routine })], [], "remote"), /routine/);
+});
+test("a routine CAS race combines checks from both devices and edits made during the retry", async () => {
+  const s = setup([routine("habit")]);
+  await s.cloud.enable();
+  s.tasks = [routine("habit", { checks: { "2026-10-03": true } })];
+  const original = s.auth.rpc;
+  let first = true;
+  s.auth.rpc = async (name, body) => {
+    if (name === "mydo_cloud_write" && first) {
+      first = false;
+      s.remote = [routine("habit", { checks: { "2026-10-04": true } }, { notes: "Other device" })];
+      s.tasks = [routine("habit", { checks: { "2026-10-03": true, "2026-10-05": true } })];
+      return { ok: false };
+    }
+    return original(name, body);
+  };
+  await s.cloud.sync();
+  assert.equal(s.cloud.message, "synced");
+  assert.deepEqual(s.remote[0].routine.checks, {
+    "2026-10-03": true, "2026-10-04": true, "2026-10-05": true,
+  });
+  assert.equal(s.remote[0].notes, "Other device");
+  assert.deepEqual(s.tasks, s.remote);
+});
+test("a routine undo made during an accepted write is preserved on the next pass", async () => {
+  const s = setup([routine("habit", { checks: { "2026-10-03": true } })]);
+  await s.cloud.enable();
+  s.tasks = [routine("habit", { checks: { "2026-10-03": true } }, { notes: "Sync this edit" })];
+  const original = s.auth.rpc;
+  let first = true;
+  s.auth.rpc = async (name, body) => {
+    const accepted = await original(name, body);
+    if (name === "mydo_cloud_write" && first) {
+      first = false;
+      s.tasks = [routine("habit", { checks: { "2026-10-03": false } }, { notes: "Sync this edit" })];
+    }
+    return accepted;
+  };
+  await s.cloud.sync();
+  assert.equal(s.cloud.message, "synced");
+  assert.equal(s.remote[0].routine.checks["2026-10-03"], false);
+  assert.equal(s.remote[0].done, false);
 });

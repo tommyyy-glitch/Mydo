@@ -1,5 +1,28 @@
 const UUID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const date = (d) =>
+  typeof d === "string" &&
+  /^\d{4}-\d{2}-\d{2}$/.test(d) &&
+  Number.isFinite(Date.parse(d)) &&
+  new Date(d).toISOString().slice(0, 10) === d;
+function validateRoutine(t, frequency) {
+  const r = t.routine;
+  if (
+    !r || typeof r !== "object" || Array.isArray(r) ||
+    !["daily", "weekly", "monthly"].includes(r.frequency) ||
+    !Array.isArray(r.weekdays) ||
+    r.weekdays.some((d) => !Number.isInteger(d) || d < 0 || d > 6) ||
+    new Set(r.weekdays).size !== r.weekdays.length ||
+    (r.frequency === "weekly" ? !r.weekdays.length : r.weekdays.length !== 0) ||
+    !date(r.start) || typeof r.timeZone !== "string" ||
+    r.timeZone.length > 80 || typeof r.paused !== "boolean" ||
+    !r.checks || typeof r.checks !== "object" || Array.isArray(r.checks) ||
+    Object.keys(r.checks).length > 3660 ||
+    Object.entries(r.checks).some(([d, done]) => !date(d) || typeof done !== "boolean") ||
+    t.due !== "" || t.reminder.onDue || frequency !== r.frequency ||
+    t.reminder.start !== r.start || t.reminder.timeZone !== r.timeZone
+  ) throw Error("tasks");
+}
 export function validateSubscription(s) {
   if (!s || typeof s.endpoint !== "string" || s.endpoint.length > 4096)
     throw Error("subscription");
@@ -37,11 +60,6 @@ export function validateTasks(tasks) {
   for (const t of tasks) {
     const r = t?.reminder;
     const frequency = r?.repeat ?? (r?.daily ? "daily" : "none");
-    const date = (d) =>
-      typeof d === "string" &&
-      /^\d{4}-\d{2}-\d{2}$/.test(d) &&
-      Number.isFinite(Date.parse(d)) &&
-      new Date(d).toISOString().slice(0, 10) === d;
     if (
       !t ||
       typeof t.id !== "string" ||
@@ -52,6 +70,8 @@ export function validateTasks(tasks) {
       !t.title.trim() ||
       t.title.length > 200 ||
       t.done !== false ||
+      (t.kind !== undefined && !["task", "routine"].includes(t.kind)) ||
+      (t.kind !== "routine" && t.routine !== undefined) ||
       typeof t.due !== "string" ||
       (t.due && !date(t.due)) ||
       !r ||
@@ -70,6 +90,7 @@ export function validateTasks(tasks) {
       (frequency !== "none" && !date(r.start))
     )
       throw Error("tasks");
+    if (t.kind === "routine") validateRoutine(t, frequency);
     try {
       new Intl.DateTimeFormat("en", { timeZone: r.timeZone }).format();
     } catch {
@@ -82,6 +103,11 @@ export function validateTasks(tasks) {
     title: t.title,
     due: t.due,
     done: false,
+    ...(t.kind === "routine" ? { kind: "routine", routine: {
+      frequency: t.routine.frequency, weekdays: [...t.routine.weekdays],
+      start: t.routine.start, timeZone: t.routine.timeZone,
+      paused: t.routine.paused, checks: { ...t.routine.checks },
+    } } : {}),
     reminder: {
       onDue: t.reminder.onDue,
       daily: t.reminder.daily,
@@ -102,7 +128,9 @@ export async function deliverDue(db, send) {
       if (!(await db.current(job))) continue;
       const zh = job.language === "zh";
       const payload = {
-        title: zh
+        title: job.is_routine
+          ? zh ? "Mydo · 日常提醒" : "Mydo · Routine reminder"
+          : zh
           ? job.is_due
             ? "Mydo · 今日到期"
             : ({ weekly: "Mydo · 每週提醒", monthly: "Mydo · 每月提醒" }[job.frequency] || "Mydo · 每日提醒")
@@ -111,6 +139,7 @@ export async function deliverDue(db, send) {
             : ({ weekly: "Mydo · Weekly reminder", monthly: "Mydo · Monthly reminder" }[job.frequency] || "Mydo · Daily reminder"),
         body: job.title,
         taskId: job.task_id,
+        ...(job.is_routine ? { kind: "routine" } : {}),
         tag: `mydo-${job.device_id}-${job.task_id}`,
       };
       const response = await send(
@@ -173,7 +202,7 @@ export function createHandler({
           const { done, value } = await reader.read();
           if (done) break;
           size += value.length;
-          if (size > 100000) {
+          if (size > 1000000) {
             await reader.cancel();
             return reply({ error: "size" }, 413);
           }
