@@ -1,5 +1,6 @@
 import { validateReminder } from "./reminders.js";
 import { isRoutine, validateRoutine } from "./routines.js";
+import { validateTaskMedia, validateTaskMediaList } from "./task-media.js";
 export const TASK_STATUSES = ["preparing", "ongoing", "almost", "complete"];
 // done remains the compatibility flag for backups and devices on the old app.
 export const taskStatus = (task) => isRoutine(task) ? "preparing" : task.done ? "complete"
@@ -100,6 +101,7 @@ export function validate(tasks) {
     )
       throw Error("date");
     validateRoutine(t);
+    validateTaskMedia(t);
     validateReminder(t.reminder, t.due);
     ids.add(t.id);
   }
@@ -122,6 +124,7 @@ export function validate(tasks) {
   for (const t of tasks) visit(t.id);
   for (const t of tasks)
     if (t.done && blockers(t, tasks).length) throw Error("completedBlocked");
+  validateTaskMediaList(tasks);
   return tasks;
 }
 export function saveTask(tasks, task) {

@@ -31,6 +31,8 @@ test("an update waits for a complete revalidated shell before activating with ot
   assert.ok(requests.some(request => request.url.endsWith("/cloud-sync.js")));
   assert.ok(requests.some(request => request.url.endsWith("/routines.js")));
   assert.ok(requests.some(request => request.url.endsWith("/routine-ui.js")));
+  assert.ok(requests.some(request => request.url.endsWith("/task-media.js")));
+  assert.ok(requests.some(request => request.url.endsWith("/task-media-ui.js")));
   assert.ok(requests.every(request => request.cache === "reload"));
   complete();
   await installed;

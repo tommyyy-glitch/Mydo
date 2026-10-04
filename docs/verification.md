@@ -1,5 +1,12 @@
 # Verification — 2026-09-27
 
+## Task icons and pictures
+
+- All 124 release Node tests and JavaScript syntax checks passed. Coverage includes optional media validation, bounded raster decoding/compression, unsafe file rejection, backup preservation, photo/icon cloud merges, aggregate payload limits, and cloud account changes during in-flight reads/writes.
+- A fresh isolated browser at 390 × 844 uploaded and compressed a real PNG, saved a task with a work icon and picture, and displayed both on its dependency card. Replacing it with an unsupported SVG showed a clear error and kept the existing picture. Removing the picture, changing the icon and reloading confirmed persistence, with no horizontal overflow or browser warnings/errors.
+- The disposable local task was deleted after testing. No production tasks, reminders or credentials were changed by these UI tests. Screenshot evidence is kept in the ignored parent `.mydo-qa/task-media-phone-paths.png` artifact.
+- This validates mobile browser layout and the tested cloud merge logic. Physical iPhone image selection and live cross-device photo synchronization have not yet been observed. Publication must be confirmed separately by successful CI/Pages deployment and live asset hashes.
+
 ## Passed locally
 
 - Eight Node tests cover dependency ordering, all-prerequisite completion, direct/indirect cycle prevention, missing links, propagation of real deadline pressure, the three-day urgency boundary, protected deletion, backup validation and sample data.

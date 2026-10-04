@@ -1,10 +1,12 @@
-const CACHE = "mydo-shell-" + self.registration.scope + "-v11";
+const CACHE = "mydo-shell-" + self.registration.scope + "-v15";
 const FILES = [
   "./",
   "index.html",
   "styles.css",
   "app.js",
   "model.js",
+  "task-media.js",
+  "task-media-ui.js",
   "cloud-sync.js",
   "routines.js",
   "routine-ui.js",

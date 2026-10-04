@@ -97,8 +97,14 @@ export class PhoneReminders {
       }
     return this.session.access_token;
   }
-  async rpc(name, body) {
+  async rpc(name, body, expectedOwner = this.session?.user?.id) {
+    const sameOwner = () => {
+      if (!expectedOwner || !this.session?.user?.id) throw Error("login");
+      if (this.session.user.id !== expectedOwner) throw Error("account");
+    };
+    sameOwner();
     const token = await this.token();
+    sameOwner();
     const res = await fetch(URL + "/rest/v1/rpc/" + name, {
       method: "POST",
       headers: { apikey: PUBLIC_KEY, Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
@@ -107,6 +113,7 @@ export class PhoneReminders {
     if (res.status === 401) throw Error("login");
     if (!res.ok) throw Error("service");
     const text = await res.text();
+    sameOwner();
     return text ? JSON.parse(text) : null;
   }
   async call(action, extra = {}) {

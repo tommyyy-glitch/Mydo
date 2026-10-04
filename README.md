@@ -43,6 +43,12 @@ Choose **Every day / 每天**, **Selected weekdays / 每週指定日子** (one o
 
 **Mark done today / 標記今天已做** records only today's scheduled occurrence. The same routine returns unfinished on the next scheduled day. Tap the check again to undo today's record. Open the routine to see recent completed dates; changing its schedule keeps its history. **Pause this routine / 暫停這項日常** stops notifications and moves it into Paused while keeping the schedule and records. Resume it by clearing Pause. Deleting the routine also deletes its records. No example medication or exercise routine is added to your personal list automatically.
 
+## Task icons and pictures
+
+Open task details to choose one of 16 optional icons and/or upload a related picture. Both appear on task cards, the priority matrix and dependency paths. Changing or removing a picture does not change progress, priority, prerequisites or reminder settings.
+
+Pictures are resized on the device to at most 512 pixels and compressed to a JPEG of at most 60 KB, without the original file metadata. Input files may be up to 20 MB; HEIC/HEIF works only when the browser can decode it. Pictures are included in JSON backups and existing cloud task sync, so they are stored in your signed-in cloud account when sync is enabled. No external image URLs or separate upload service are used. Photo-containing lists have a conservative 900 KB cloud payload limit; a clear error keeps the saved copies intact if a merge would exceed it. Remove unused pictures and sync again to recover.
+
 ## Your data
 
 Tasks and routines are saved in localStorage (`mydo.v1`) on this browser and site origin. They sync between devices only when **Cloud task sync** is enabled; GitHub stores application source, not your personal list. Cloud sync saves the full list in your signed-in account, including notes, groups, relationships, reminder schedules and routine records. Without cloud task sync, enabling phone notifications sends only reminder item IDs, titles, dates/settings, routine schedule/check/pause data, language and the device push subscription; notes and task relationships stay local. Clearing browser data can remove the local copy. Export JSON backups regularly; Import validates a file and asks before replacing the entire list. A corrupted stored list is preserved for export rather than silently overwritten. The app supports up to 2,000 items, but the path diagram is intended for smaller personal projects.
